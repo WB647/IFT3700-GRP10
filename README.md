@@ -29,6 +29,25 @@ L'outil permet de parcourir les événements d'une partie (saison, type de parti
    interactive_tool.start()
 ```
 
+## Tâche 3 – TidyData
 
+Transforme les JSON bruts en DataFrame pandas (une ligne par tir ou but, tirs de barrage exclus).
+
+### Lancement
+
+Après avoir téléchargé les données (`python download_nhl_data.py`), à la racine du projet :
+
+```bash
+python tache3_tidydata.py
+```
+
+Le script construit le DataFrame de la saison 20162017, affiche les 10 premières lignes, le nombre d'événements et le nombre de valeurs manquantes par colonne.
+
+Dans un notebook ou un autre script :
+
+```python
+from tache3_tidydata import season_to_df
+df = season_to_df("20162017")
+```
 
 
