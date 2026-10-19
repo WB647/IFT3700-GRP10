@@ -6,6 +6,29 @@
 python -m pip install -r requirements.txt
 ```
 
+## Tâche 1 — Acquisition des données
+
+Le script `download_nhl_data.py` télécharge les données play-by-play de la LNH pour les saisons 2016–17 à 2023–24, incluant la saison régulière et les séries éliminatoires.
+
+### Lancement
+
+Depuis la racine du projet, exécuter :
+
+```bash
+python download_nhl_data.py
+```
+
+Le script récupère les identifiants des matchs à partir des calendriers des équipes, élimine les doublons, puis télécharge les données play-by-play de chaque match à partir de l’API de la LNH.
+
+Les fichiers JSON sont enregistrés dans `data/raw/<saison>/`. Par exemple, les matchs de la saison 2016–17 sont enregistrés dans `data/raw/20162017/`.
+
+Le script saute les fichiers déjà présents, ce qui permet de le relancer sans télécharger de nouveau les matchs déjà traités. Les identifiants des matchs dont le téléchargement échoue sont enregistrés dans `failed_ids.txt`, dans le dossier de la saison concernée.
+
+Les données brutes sont exclues du dépôt Git avec `.gitignore`, car elles peuvent être recréées en exécutant le script.
+
+IA: Pour la tâche 1, j’ai utilisé ChatGPT pour m’aider à concevoir le script de téléchargement et à organiser sa logique : récupérer les identifiants des matchs, éliminer les doublons, télécharger les fichiers JSON et reprendre le téléchargement sans retraiter les fichiers déjà présents. 
+
+
 ## Tâche 2 – Outil de débogage interactif
 
 L'outil permet de parcourir les événements d'une partie (saison, type de partie, partie, événement) et de voir leurs coordonnées sur une patinoire.
@@ -51,6 +74,33 @@ from tache3_tidydata import season_to_df
 df = season_to_df("20162017")
 ```
 IA : Pour la tâche 3,Claude a proposé un code qui vérifie d'abord les vrais noms de champs. Nous avons exécuté ce script sur un vrai fichier JSON et collé la sortie dans la conversation, puis Claude a écrit le code final d'après ces champs. 
+
+
+## Tâche 4 — Visualisations simples
+
+Le script `tache4_visualizations.py` produit trois figures pour analyser les tirs et les buts dans la LNH.
+
+### Exécution
+
+Depuis la racine du projet, exécuter :
+
+```bash
+python tache4_visualizations.py
+```
+
+Les figures sont enregistrées dans le dossier `Figures/` :
+
+- `Figures/task4_q1_20182019.png` : compare le nombre de tirs, le nombre de buts et le pourcentage de buts par type de tir pendant la saison 2018–19.
+- `Figures/task4_q2_goal_probability_by_distance.png` : compare le pourcentage de tirs qui se terminent par un but selon la distance, pour les saisons 2018–19, 2019–20 et 2020–21.
+- `Figures/task4_q3_goal_percentage_distance_and_type.png` : présente le pourcentage de buts selon la distance et le type de tir pendant la saison 2018–19.
+
+### Résultats
+
+Pendant la saison 2018–19, le tir du poignet (*wrist shot*) est le type de tir le plus fréquent. Toutefois, le nombre de tirs et le pourcentage de buts mesurent des aspects différents : les tirs de type *tip-in* et *deflected* ont des pourcentages de buts plus élevés dans les données analysées.
+
+Pour les trois saisons comparées, les tirs pris près du filet ont généralement un pourcentage de buts plus élevé. Ce pourcentage diminue avec la distance. Les variations observées pour certaines distances éloignées doivent être interprétées avec prudence, car elles peuvent dépendre du nombre de tirs dans ces catégories.
+
+IA: j’ai utilisé ChatGPT pour m’aider à écrire et à corriger le script de visualisation, notamment pour créer les graphiques sur les types de tirs, la distance et le pourcentage de buts. 
 
 
 ## Tâche 5 — Visualisations avancées : cartes de tirs
