@@ -1,0 +1,155 @@
+{
+  "seasons": {
+    "20162017": {
+      "games": 1230,
+      "teams": 30,
+      "shots_and_goals": 74362,
+      "duplicate_game_event_keys": 0,
+      "offensive_zone_wrong_side": 0,
+      "defensive_zone_wrong_side": 0,
+      "league_formula_max_error": 0.0,
+      "team_formula_max_error": 0.0,
+      "excess_formula_max_error": 0.0,
+      "smoothing_sum_max_error": 8.881784197001252e-16,
+      "dropdown_buttons": 30,
+      "view_buttons": [
+        "Valeurs brutes 5×5 pi",
+        "Carte lissée"
+      ],
+      "checks": {
+        "unique_game_event_keys": true,
+        "offensive_zone_oriented_positive_x": true,
+        "defensive_zone_oriented_negative_x": true,
+        "league_formula_exact": true,
+        "team_formula_exact": true,
+        "excess_formula_exact": true,
+        "smoothing_preserves_total": true,
+        "dropdown_contains_every_team": true,
+        "raw_smoothed_toggle_available": true,
+        "standalone_plotly_embedded": true,
+        "html_render_centered": true
+      }
+    },
+    "20172018": {
+      "games": 1271,
+      "teams": 31,
+      "shots_and_goals": 81238,
+      "duplicate_game_event_keys": 0,
+      "offensive_zone_wrong_side": 0,
+      "defensive_zone_wrong_side": 0,
+      "league_formula_max_error": 0.0,
+      "team_formula_max_error": 0.0,
+      "excess_formula_max_error": 0.0,
+      "smoothing_sum_max_error": 8.881784197001252e-16,
+      "dropdown_buttons": 31,
+      "view_buttons": [
+        "Valeurs brutes 5×5 pi",
+        "Carte lissée"
+      ],
+      "checks": {
+        "unique_game_event_keys": true,
+        "offensive_zone_oriented_positive_x": true,
+        "defensive_zone_oriented_negative_x": true,
+        "league_formula_exact": true,
+        "team_formula_exact": true,
+        "excess_formula_exact": true,
+        "smoothing_preserves_total": true,
+        "dropdown_contains_every_team": true,
+        "raw_smoothed_toggle_available": true,
+        "standalone_plotly_embedded": true,
+        "html_render_centered": true
+      }
+    },
+    "20182019": {
+      "games": 1271,
+      "teams": 31,
+      "shots_and_goals": 79954,
+      "duplicate_game_event_keys": 0,
+      "offensive_zone_wrong_side": 0,
+      "defensive_zone_wrong_side": 0,
+      "league_formula_max_error": 0.0,
+      "team_formula_max_error": 0.0,
+      "excess_formula_max_error": 0.0,
+      "smoothing_sum_max_error": 9.992007221626409e-16,
+      "dropdown_buttons": 31,
+      "view_buttons": [
+        "Valeurs brutes 5×5 pi",
+        "Carte lissée"
+      ],
+      "checks": {
+        "unique_game_event_keys": true,
+        "offensive_zone_oriented_positive_x": true,
+        "defensive_zone_oriented_negative_x": true,
+        "league_formula_exact": true,
+        "team_formula_exact": true,
+        "excess_formula_exact": true,
+        "smoothing_preserves_total": true,
+        "dropdown_contains_every_team": true,
+        "raw_smoothed_toggle_available": true,
+        "standalone_plotly_embedded": true,
+        "html_render_centered": true
+      }
+    },
+    "20192020": {
+      "games": 1082,
+      "teams": 31,
+      "shots_and_goals": 67983,
+      "duplicate_game_event_keys": 0,
+      "offensive_zone_wrong_side": 0,
+      "defensive_zone_wrong_side": 0,
+      "league_formula_max_error": 0.0,
+      "team_formula_max_error": 0.0,
+      "excess_formula_max_error": 0.0,
+      "smoothing_sum_max_error": 6.661338147750939e-16,
+      "dropdown_buttons": 31,
+      "view_buttons": [
+        "Valeurs brutes 5×5 pi",
+        "Carte lissée"
+      ],
+      "checks": {
+        "unique_game_event_keys": true,
+        "offensive_zone_oriented_positive_x": true,
+        "defensive_zone_oriented_negative_x": true,
+        "league_formula_exact": true,
+        "team_formula_exact": true,
+        "excess_formula_exact": true,
+        "smoothing_preserves_total": true,
+        "dropdown_contains_every_team": true,
+        "raw_smoothed_toggle_available": true,
+        "standalone_plotly_embedded": true,
+        "html_render_centered": true
+      }
+    },
+    "20202021": {
+      "games": 868,
+      "teams": 31,
+      "shots_and_goals": 52033,
+      "duplicate_game_event_keys": 0,
+      "offensive_zone_wrong_side": 0,
+      "defensive_zone_wrong_side": 0,
+      "league_formula_max_error": 0.0,
+      "team_formula_max_error": 0.0,
+      "excess_formula_max_error": 0.0,
+      "smoothing_sum_max_error": 3.552713678800501e-15,
+      "dropdown_buttons": 31,
+      "view_buttons": [
+        "Valeurs brutes 5×5 pi",
+        "Carte lissée"
+      ],
+      "checks": {
+        "unique_game_event_keys": true,
+        "offensive_zone_oriented_positive_x": true,
+        "defensive_zone_oriented_negative_x": true,
+        "league_formula_exact": true,
+        "team_formula_exact": true,
+        "excess_formula_exact": true,
+        "smoothing_preserves_total": true,
+        "dropdown_contains_every_team": true,
+        "raw_smoothed_toggle_available": true,
+        "standalone_plotly_embedded": true,
+        "html_render_centered": true
+      }
+    }
+  },
+  "all_checks_passed": true
+}
