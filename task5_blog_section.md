@@ -18,15 +18,19 @@ https://api-web.nhle.com/v1/gamecenter/{GAME_ID}/play-by-play
 Cette méthode évite de construire manuellement les identifiants des matchs. Un match qui apparaît dans les calendriers des deux équipes n’est téléchargé qu’une seule fois.
 Installation et exécution
 Depuis la racine du projet, installez les dépendances :
-`python -m pip install -r requirements.txt`
+```bash
+python -m pip install -r requirements.txt`
+```
 Lancez ensuite le téléchargement :
-`data/raw/<season>/<GAME_ID>.json`
+```bash
+python download_nhl_data.py
+```
 Par exemple, les fichiers de la saison 2016–17 se trouvent dans `data/raw/20162017/`.
 
 Avant de télécharger un match, le script vérifie si son fichier JSON existe déjà. Si c’est le cas, il le saute. On peut donc relancer le script pour reprendre le téléchargement sans télécharger de nouveau les matchs déjà enregistrés.
 
 Si le téléchargement d’un match échoue, son identifiant est ajouté à un fichier failed_ids.txt dans le dossier de la saison concernée. Le script affiche également le nombre de matchs trouvés, la progression tous les 100 matchs et un message de fin pour chaque saison.
-Vérification des données
+###Vérification des données
 Après l’exécution, nous avons vérifié le nombre de fichiers JSON dans chaque dossier de saison. Les nombres obtenus correspondaient aux nombres de matchs trouvés par le script :
 | Saison | Fichiers JSON |
 |---|---:|
