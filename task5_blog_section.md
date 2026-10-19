@@ -1,4 +1,49 @@
 
+## Tâche 1 — Acquisition des données play-by-play
+
+Pour analyser les matchs de la LNH, nous avions besoin des données play-by-play de chaque rencontre. Elles décrivent les événements d’un match, notamment les tirs, les buts, les mises au jeu et les arrêts.
+
+Nous avons téléchargé les saisons 2016–17 à 2023–24, en incluant la saison régulière et les séries éliminatoires.
+
+### Source des données et sélection des matchs
+
+Nous avons utilisé l’API publique de la LNH. Pour chaque saison, le script consulte le calendrier des équipes avec l’endpoint `club-schedule-season`, récupère les identifiants des matchs de saison régulière et des séries, puis élimine les doublons avec un ensemble Python (`set`).
+
+Le script télécharge ensuite le play-by-play de chaque match à partir de l’endpoint suivant :
+
+```text
+https://api-web.nhle.com/v1/gamecenter/{GAME_ID}/play-by-play
+```
+
+Cette méthode évite de construire manuellement les identifiants des matchs. Un match qui apparaît dans les calendriers des deux équipes n’est téléchargé qu’une seule fois.
+Installation et exécution
+Depuis la racine du projet, installez les dépendances :
+`python -m pip install -r requirements.txt`
+Lancez ensuite le téléchargement :
+`data/raw/<season>/<GAME_ID>.json`
+Par exemple, les fichiers de la saison 2016–17 se trouvent dans `data/raw/20162017/`.
+
+Avant de télécharger un match, le script vérifie si son fichier JSON existe déjà. Si c’est le cas, il le saute. On peut donc relancer le script pour reprendre le téléchargement sans télécharger de nouveau les matchs déjà enregistrés.
+
+Si le téléchargement d’un match échoue, son identifiant est ajouté à un fichier failed_ids.txt dans le dossier de la saison concernée. Le script affiche également le nombre de matchs trouvés, la progression tous les 100 matchs et un message de fin pour chaque saison.
+Vérification des données
+Après l’exécution, nous avons vérifié le nombre de fichiers JSON dans chaque dossier de saison. Les nombres obtenus correspondaient aux nombres de matchs trouvés par le script :
+| Saison | Fichiers JSON |
+|---|---:|
+| 2016–17 | 1317 |
+| 2017–18 | 1355 |
+| 2018–19	| 1358 |
+| 2019–20 | 1212 |
+| 2020–21 | 952 |    
+| 2021–22	| 1401 |      
+| 2022–23	| 1400 |        
+| 2023–24	| 1400 |        
+
+Aucun fichier failed_ids.txt n’a été trouvé après le téléchargement.
+
+Les données brutes ne sont pas incluses dans le dépôt Git. Elles sont volumineuses et peuvent être recréées en exécutant `download_nhl_data.py`. Le dépôt contient donc le script nécessaire pour que les membres de l’équipe puissent télécharger leur propre copie des données.
+Résultat
+Nous avons obtenu un fichier play-by-play par match pour les huit saisons étudiées. Ces données brutes servent de source aux étapes suivantes du projet : exploration interactive, création d’un DataFrame ordonné et visualisation des tirs.
 
 ## Tâche 2 — Outil de débogage interactif
 
@@ -150,6 +195,52 @@ Voici trois caractéristiques qu'on pourrait créer à partir des données :
 - Distance et angle du tir. Avec les coordonnées `x` et `y` et la position du filet, on peut calculer la distance au filet et l'angle de tir. Ce sont des caractéristiques liées à la probabilité de marquer.
 - Rebond. Un tir peut être classé comme rebond s'il vient de la même équipe, dans la même période, moins de 3 secondes après un autre tir de cette équipe. On l'identifie en comparant le temps et l'équipe de chaque tir avec ceux du tir précédent de la même partie.
 - Tir en contre-attaque. Un tir peut être classé comme contre-attaque s'il vient peu de temps après un événement dans l'autre moitié de la patinoire, c'est-à-dire si la rondelle a parcouru une grande distance en `x` en quelques secondes. On l'identifie avec le temps et les coordonnées de l'événement précédent.
+=======
+
+
+## Tâche 4 — Visualisations simples des tirs et des buts
+
+Cette tâche présente trois visualisations qui explorent les tirs et les buts dans les données de la LNH. Elles portent sur les types de tirs, la distance par rapport au filet et le pourcentage de tirs qui se terminent par un but.
+
+### 1. Nombre de tirs et pourcentage de buts selon le type de tir
+
+La première figure compare, pour la saison 2018–19, le nombre de tirs, le nombre de buts et le pourcentage de tirs qui se terminent par un but pour chaque type de tir.
+
+![Nombre de tirs, nombre de buts et pourcentage de buts par type de tir, saison 2018-19]({{ '/Figures/task4_q1_20182019.png' | relative_url }})
+
+*Figure 1 — Tirs et buts par type de tir pendant la saison 2018–19.*
+
+Le tir du poignet (*wrist shot*) est le type de tir le plus fréquent dans les données. Cependant, le type de tir le plus fréquent n’a pas nécessairement le pourcentage de buts le plus élevé. Les tirs de type *tip-in* et *deflected* affichent des pourcentages de buts plus élevés dans les données analysées. Ces résultats doivent être interprétés en tenant compte du nombre de tirs observés pour chaque catégorie.
+
+### 2. Pourcentage de buts selon la distance
+
+La deuxième figure compare le pourcentage de tirs qui se terminent par un but selon la distance, pour les saisons 2018–19, 2019–20 et 2020–21.
+
+![Pourcentage de buts selon la distance pour trois saisons]({{ '/Figures/task4_q2_goal_probability_by_distance.png' | relative_url }})
+
+*Figure 2 — Pourcentage de tirs qui se terminent par un but selon la distance.*
+
+Les tirs pris près du filet ont généralement un pourcentage de buts plus élevé. Ce pourcentage tend à diminuer lorsque la distance augmente. Les variations observées dans les catégories les plus éloignées doivent être interprétées avec prudence, car elles peuvent être influencées par le nombre de tirs dans chaque catégorie.
+
+### 3. Pourcentage de buts selon la distance et le type de tir
+
+La troisième figure présente le pourcentage de buts selon la distance et le type de tir pour la saison 2018–19.
+
+![Pourcentage de buts selon la distance et le type de tir, saison 2018-19]({{ '/Figures/task4_q3_goal_percentage_distance_and_type.png' | relative_url }})
+
+*Figure 3 — Pourcentage de buts selon la distance et le type de tir pendant la saison 2018–19.*
+
+Cette figure combine les deux dimensions précédentes. Elle permet de comparer les types de tirs à différentes distances et de voir que le pourcentage de buts varie selon l’emplacement et le type de tir. Les catégories qui contiennent peu de tirs peuvent produire des pourcentages plus variables.
+
+### Exécution et reproductibilité
+
+Depuis la racine du projet, exécutez :
+
+```bash
+python tache4_visualizations.py
+```
+Le script génère les trois figures dans le dossier Figures/. Les résultats présentés dans cette section proviennent des données play-by-play téléchargées pour les tâches précédentes.
+>>>>>>> 5e55510403f71f41eb4e1e249ea118c9367abbbf
 
 
 
