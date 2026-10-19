@@ -28,6 +28,7 @@ L'outil permet de parcourir les événements d'une partie (saison, type de parti
    import interactive_tool
    interactive_tool.start()
 ```
+ IA : Pour la tache 2,demander de generer le code pour cette tache et fourni une capture de l'exemple de l'énoncé et demandé de reproduire ses dimensions et sa mise en page (patinoire de -100 à 100 pieds en x et de -42.5 à 42.5 en y, noms des équipes au-dessus, axes en « feet »). M'a egalement guide pour setup Jupyter sur VS Code
 
 ## Tâche 3 – TidyData
 
@@ -49,6 +50,8 @@ Dans un notebook ou un autre script :
 from tache3_tidydata import season_to_df
 df = season_to_df("20162017")
 ```
+IA : Pour la tâche 3,Claude a proposé un code qui vérifie d'abord les vrais noms de champs. Nous avons exécuté ce script sur un vrai fichier JSON et collé la sortie dans la conversation, puis Claude a écrit le code final d'après ces champs. 
+
 
 ## Tâche 5 — Visualisations avancées : cartes de tirs
 
