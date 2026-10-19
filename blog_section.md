@@ -210,7 +210,7 @@ Cette tâche présente trois visualisations qui explorent les tirs et les buts d
 
 La première figure compare, pour la saison 2018–19, le nombre de tirs, le nombre de buts et le pourcentage de tirs qui se terminent par un but pour chaque type de tir.
 
-![Nombre de tirs, nombre de buts et pourcentage de buts par type de tir, saison 2018-19]({{ '/Figures/task4_q1_20182019.png' | relative_url }})
+![Tirs et buts par type de tir, saison 2018-19](Figures/task4_q1_20182019.png)
 
 *Figure 1 — Tirs et buts par type de tir pendant la saison 2018–19.*
 
@@ -220,7 +220,7 @@ Le tir du poignet (*wrist shot*) est le type de tir le plus fréquent dans les d
 
 La deuxième figure compare le pourcentage de tirs qui se terminent par un but selon la distance, pour les saisons 2018–19, 2019–20 et 2020–21.
 
-![Pourcentage de buts selon la distance pour trois saisons]({{ '/Figures/task4_q2_goal_probability_by_distance.png' | relative_url }})
+![Pourcentage de buts selon la distance pour trois saisons](Figures/task4_q2_goal_probability_by_distance.png)
 
 *Figure 2 — Pourcentage de tirs qui se terminent par un but selon la distance.*
 
@@ -230,7 +230,7 @@ Les tirs pris près du filet ont généralement un pourcentage de buts plus éle
 
 La troisième figure présente le pourcentage de buts selon la distance et le type de tir pour la saison 2018–19.
 
-![Pourcentage de buts selon la distance et le type de tir, saison 2018-19]({{ '/Figures/task4_q3_goal_percentage_distance_and_type.png' | relative_url }})
+![Pourcentage de buts selon la distance et le type de tir, saison 2018-19](Figures/task4_q3_goal_percentage_distance_and_type.png)
 
 *Figure 3 — Pourcentage de buts selon la distance et le type de tir pendant la saison 2018–19.*
 
@@ -244,7 +244,7 @@ Depuis la racine du projet, exécutez :
 python tache4_visualizations.py
 ```
 Le script génère les trois figures dans le dossier Figures/. Les résultats présentés dans cette section proviennent des données play-by-play téléchargées pour les tâches précédentes.
->>>>>>> 5e55510403f71f41eb4e1e249ea118c9367abbbf
+
 
 
 
