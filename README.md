@@ -56,7 +56,7 @@ df = season_to_df("20162017")
 
 Cette tâche consiste à créer **cinq cartes interactives des tirs offensifs**, une pour chaque saison de 2016-17 à 2020-21. Elles permettent de sélectionner une équipe et de comparer ses tirs à la moyenne de la LNH selon leur emplacement sur la patinoire.
 
-Le code est regroupé dans `task5_shot_maps/`, sans modifier les tâches précédentes. Les cartes et les fichiers de validation sont générés dans `task5_outputs/html/`.
+Le code est regroupé dans `task5_shot_maps/`,Les cartes et les fichiers de validation sont générés dans `task5_outputs/html/`.
 
 ### Méthode
 
@@ -88,7 +88,7 @@ python -m task5_shot_maps.validate --data-dir data/raw --output-dir task5_output
 python -m pytest tests/task5 -q
 ```
 
-Les cinq fichiers HTML générés sont interactifs et fonctionnent hors ligne. Les résultats des vérifications sont enregistrés dans `generation_audit.json` et `validation_report.json`.
+Les cinq fichiers HTML générés sont interactifs et fonctionnent hors ligne. Les résultats des vérifications sont enregistrés dans `generation.json` et `validation_report.json`.
 
 ### Tests et validation
 
@@ -96,7 +96,7 @@ Les **21 tests ont réussi** et la validation des cinq saisons confirme que les 
 
 Les vérifications portent notamment sur les coordonnées, les calculs, le lissage, les menus interactifs et la génération des fichiers.
 
-Au total, seulement 13 coordonnées invalides ont été exclues. Les conflits de sens d'attaque ont été traités et documentés dans l'audit. Deux générations successives ont également produit des fichiers identiques.
+Au total, seulement 13 coordonnées invalides ont été exclues. Les conflits de sens d'attaque ont été traités et documentés. Deux générations successives ont également produit des fichiers identiques.
 
 ### Limites
 
