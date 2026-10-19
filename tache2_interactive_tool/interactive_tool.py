@@ -12,19 +12,19 @@ RINK_IMAGE = ROOT / "figures" / "nhl_rink.png"  # rink image (200 ft x 85 ft)
  
  
 def get_seasons():
-    """Return the season folders found in the data directory (e.g. 20162017)."""
+    #Return the season folders found in the data directory (e.g. 20162017).
     if not DATA_DIR.exists():
         return []
     return sorted(p.name for p in DATA_DIR.iterdir() if p.is_dir() and p.name.isdigit())
  
  
 def get_games(season, game_type):
-    """Return the JSON files of one season. game_type: '02' regular season, '03' playoffs."""
+    #Return the JSON files of one season. game_type: '02' regular season, '03' playoffs.
     return sorted((DATA_DIR / season).glob(f"{season[:4]}{game_type}*.json"))
  
  
 def draw_rink(ax):
-    """Draw the rink (x from -100 to 100 ft, y from -42.5 to 42.5 ft)."""
+    #Draw the rink (x from -100 to 100 ft, y from -42.5 to 42.5 ft).
     if RINK_IMAGE.exists():
         ax.imshow(plt.imread(RINK_IMAGE), extent=[-100, 100, -42.5, 42.5])
     else:
@@ -45,7 +45,7 @@ def draw_rink(ax):
  
  
 def show_event(season, game_type, game_index, event_index):
-    """Print the details of one event and draw its coordinates on the rink."""
+    #Print the details of one event and draw its coordinates on the rink.
     games = get_games(season, game_type)
     if not games:
         print("No game found for this selection.")
@@ -76,8 +76,8 @@ def show_event(season, game_type, game_index, event_index):
  
     # Team names above the rink, on the side they defend (left/right of the rink).
     left, right = (home, away) if play.get("homeTeamDefendingSide") == "left" else (away, home)
-    ax.text(-50, 44, left, ha="center", va="bottom")
-    ax.text(50, 44, right, ha="center", va="bottom")
+    ax.text(-50, 44, right, ha="center", va="bottom")
+    ax.text(50, 44, left, ha="center", va="bottom")
  
     title = f"{play['typeDescKey']}\n{play['timeInPeriod']} P-{period}"
     if "xCoord" in details and "yCoord" in details:
@@ -89,7 +89,7 @@ def show_event(season, game_type, game_index, event_index):
  
  
 def start():
-    """Display the interactive tool (call it from a notebook cell)."""
+    #Display the interactive tool.
     seasons = get_seasons()
     if not seasons:
         print(f"No season found in {DATA_DIR}. Run download_nhl_data.py first.")

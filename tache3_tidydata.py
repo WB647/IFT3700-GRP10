@@ -7,7 +7,7 @@ DATA_DIR = Path(__file__).resolve().parent / "data" / "raw"
  
  
 def game_to_df(path):
-    """Convert the shots and goals of one game JSON file into a DataFrame (one row per event)."""
+    #Convert the shots and goals of one game JSON file into a DataFrame (one row per event).
     game = json.loads(Path(path).read_text(encoding="utf-8"))
     home, away = game["homeTeam"], game["awayTeam"]
  
@@ -58,11 +58,11 @@ def game_to_df(path):
  
  
 def season_to_df(season): 
-    """Convert all the games of one season (e.g. '20162017') into one DataFrame. Used for the blog, only the first 10 lines are printed."""
+    #Convert all the games of one season (e.g. '20162017') into one DataFrame. Used for the blog, only the first 10 lines are printed.
     files = sorted((DATA_DIR / str(season)).glob("*.json"))
     return pd.concat([game_to_df(f) for f in files], ignore_index=True)
 
-"""for task 4-5"""
+#for task 4-5
 def all_seasons_to_df(): 
     """Convert all the downloaded seasons into one DataFrame."""
     seasons = sorted(p.name for p in DATA_DIR.iterdir() if p.is_dir())

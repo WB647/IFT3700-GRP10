@@ -1,3 +1,159 @@
+
+
+## Tâche 2 — Outil de débogage interactif
+
+Nous avons créé un outil interactif avec ipywidgets et matplotlib. Il permet de choisir une saison, de basculer entre la saison régulière et les séries, puis de parcourir les parties et leurs événements avec des curseurs. Les coordonnées de l'événement sont dessinées sur la patinoire (en pieds) et ses données sont affichées, même quand il n'y a pas de coordonnées.
+
+<figure>
+  <img src="{{ '/figures/task2_interactive_tool.png' | relative_url }}" alt="Capture de l'outil interactif" style="max-width:100%;">
+  <figcaption>Figure 1 — Capture de l'outil interactif (saison 2016-2017).</figcaption>
+</figure>
+
+<details>
+<summary>Code de l'outil (<code>interactive_tool.py</code>)</summary>
+
+
+```python
+import json
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+from ipywidgets import IntSlider, interact
+from matplotlib.patches import Circle
+
+# Paths are relative to the repository root, whatever folder the notebook is run from.
+ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT / "data" / "raw"
+RINK_IMAGE = ROOT / "figures" / "nhl_rink.png"  # rink image (200 ft x 85 ft)
+
+
+def get_seasons():
+    """Return the season folders found in the data directory (e.g. 20162017)."""
+    if not DATA_DIR.exists():
+        return []
+    return sorted(p.name for p in DATA_DIR.iterdir() if p.is_dir() and p.name.isdigit())
+
+
+def get_games(season, game_type):
+    """Return the JSON files of one season. game_type: '02' regular season, '03' playoffs."""
+    return sorted((DATA_DIR / season).glob(f"{season[:4]}{game_type}*.json"))
+
+
+def draw_rink(ax):
+    """Draw the rink (x from -100 to 100 ft, y from -42.5 to 42.5 ft)."""
+    if RINK_IMAGE.exists():
+        ax.imshow(plt.imread(RINK_IMAGE), extent=[-100, 100, -42.5, 42.5])
+    else:
+        ax.plot([-100, 100, 100, -100, -100], [-42.5, -42.5, 42.5, 42.5, -42.5], "k")
+        ax.axvline(0, color="red")  # center line
+        ax.axvline(-25, color="blue")  # blue lines
+        ax.axvline(25, color="blue")
+        ax.axvline(-89, color="red", linewidth=1)  # goal lines
+        ax.axvline(89, color="red", linewidth=1)
+        ax.add_patch(Circle((0, 0), 15, fill=False, color="blue"))  # center circle
+
+    ax.set_xlim(-100, 100)
+    ax.set_ylim(-42.5, 42.5)
+    ax.set_xticks(range(-100, 101, 25))
+    ax.set_yticks([-42.5, -21.25, 0, 21.25, 42.5])
+    ax.set_xlabel("feet")
+    ax.set_ylabel("feet")
+
+
+def show_event(season, game_type, game_index, event_index):
+    """Print the details of one event and draw its coordinates on the rink."""
+    games = get_games(season, game_type)
+    if not games:
+        print("No game found for this selection.")
+        return
+
+    # The sliders have a fixed maximum, so stay inside the real number of games/events.
+    game_index = min(game_index, len(games) - 1)
+    game = json.loads(games[game_index].read_text(encoding="utf-8"))
+
+    plays = game.get("plays", [])
+    if not plays:
+        print("No event in this game.")
+        return
+    event_index = min(event_index, len(plays) - 1)
+    play = plays[event_index]
+    details = play.get("details", {})
+
+    home, away = game["homeTeam"]["abbrev"], game["awayTeam"]["abbrev"]
+    period = play["periodDescriptor"]["number"]
+    print(game["gameDate"])
+    print(f"Game ID: {game['id']}; {home} (home) vs {away} (away)  [{game_index + 1}/{len(games)}]")
+    print(f"Event {event_index + 1}/{len(plays)}: {play['typeDescKey']}, "
+          f"period {period}, {play['timeInPeriod']}")
+    print(details)
+
+    fig, ax = plt.subplots(figsize=(8, 3.5))
+    draw_rink(ax)
+
+    # Team names above the rink, on the side they defend (left/right of the rink).
+    left, right = (home, away) if play.get("homeTeamDefendingSide") == "right" else (away, home)
+    ax.text(-50, 44, left, ha="center", va="bottom")
+    ax.text(50, 44, right, ha="center", va="bottom")
+
+    title = f"{play['typeDescKey']}\n{play['timeInPeriod']} P-{period}"
+    if "xCoord" in details and "yCoord" in details:
+        ax.scatter(details["xCoord"], details["yCoord"], s=120, color="blue")
+    else:
+        title += " (no coordinates)"
+    ax.set_title(title, y=1.1)
+    plt.show()
+
+
+def start():
+    """Display the interactive tool (call it from a notebook cell)."""
+    seasons = get_seasons()
+    if not seasons:
+        print(f"No season found in {DATA_DIR}. Run download_nhl_data.py first.")
+        return
+
+    interact(
+        show_event,
+        season=seasons,
+        game_type=[("Saison régulière", "02"), ("Séries", "03")],
+        game_index=IntSlider(min=0, max=1400),
+        event_index=IntSlider(min=0, max=600),
+    )
+```
+{% endraw %}
+
+</details>
+
+## Tâche 3 — Données ordonnées
+
+Nous avons transformé les fichiers JSON bruts en un DataFrame pandas, avec une ligne par tir ou but (les tirs de barrage sont exclus). Pour la saison 2016-2017, le DataFrame contient 79 798 événements : 74 362 en saison régulière et 5 436 en séries. Chaque événement est identifié de façon unique par `game_id` et `event_id`, et contient la saison, le type de match, la période, le temps, l'équipe qui tire, un indicateur but ou tir, les coordonnées, le tireur, le gardien, le type de tir, un indicateur de filet désert et la force sur la glace. Le code est dans `tache3_tidydata.py`.
+
+### 1. Extrait du DataFrame
+
+<figure>
+  <img src="{{ '/figures/task3_head10.png' | relative_url }}" alt="Extrait du DataFrame" style="max-width:100%;">
+  <figcaption>Figure 2 — Les 10 premières lignes du DataFrame (<code>df.head(10)</code>).</figcaption>
+</figure>
+
+Valeurs manquantes. Elles sont gardées comme manquantes (pas de 0 ni de faux) et exclues seulement des analyses qui en ont besoin. Pour 2016-2017, 4 événements n'ont pas de coordonnées, 6 n'ont pas de type de tir et 314 n'ont pas de gardien. Ces 314 cas correspondent à des filets déserts : l'absence de gardien n'arrive jamais ailleurs.
+
+Force sur la glace. Le `situationCode` s'écrit `[gardien visiteur][patineurs visiteurs][patineurs locaux][gardien local]`. Par exemple, `1451` veut dire que le visiteur a 4 patineurs et le local 5. Pour chaque tir ou but, on prend le nombre de patineurs de l'équipe qui tire et celui de l'équipe adverse, en inversant selon que l'équipe qui tire est locale ou visiteuse. Si les deux nombres sont égaux, c'est de l'égalité ; si l'équipe qui tire en a plus, c'est un avantage numérique ; sinon, un désavantage numérique. La force exacte (`5v4`, `5v3`, etc.) est simplement ces deux nombres. Un chiffre de gardien égal à 0 pour l'équipe qui défend indique un filet désert.
+
+Cas limites.
+- Un gardien retiré pour un attaquant de plus donne un 6 contre 5. Par nombre de patineurs, ce cas est compté comme un avantage numérique, alors qu'il n'y a pas de pénalité. On peut le repérer, car le chiffre du gardien de l'équipe vaut 0.
+- La prolongation à 3 contre 3 est comptée comme de l'égalité, même si ce n'est pas du 5 contre 5. Le champ `strength_state` garde ce détail.
+- Une pénalité différée n'est pas visible dans le code : le jeu continue à forces égales jusqu'à ce que l'équipe fautive touche la rondelle.
+- Sans `situationCode`, on pourrait reconstruire la force avec les événements de pénalité (équipe, durée, temps de début) : à chaque pénalité, on retire un patineur à l'équipe fautive jusqu'à la fin de la pénalité ou jusqu'à un but en avantage numérique pour une pénalité mineure.
+
+### 2. Caractéristiques supplémentaires
+
+Voici trois caractéristiques qu'on pourrait créer à partir des données :
+- Distance et angle du tir. Avec les coordonnées `x` et `y` et la position du filet, on peut calculer la distance au filet et l'angle de tir. Ce sont des caractéristiques liées à la probabilité de marquer.
+- Rebond. Un tir peut être classé comme rebond s'il vient de la même équipe, dans la même période, moins de 3 secondes après un autre tir de cette équipe. On l'identifie en comparant le temps et l'équipe de chaque tir avec ceux du tir précédent de la même partie.
+- Tir en contre-attaque. Un tir peut être classé comme contre-attaque s'il vient peu de temps après un événement dans l'autre moitié de la patinoire, c'est-à-dire si la rondelle a parcouru une grande distance en `x` en quelques secondes. On l'identifie avec le temps et les coordonnées de l'événement précédent.
+
+
+
+
 ## Tâche 5 — Cartes de tirs offensives
 
 Les cinq cartes montrent où chaque équipe tire plus ou moins souvent que la moyenne de la LNH, dans des cases de 5 × 5 pieds. Le rouge représente un surplus de tirs et le bleu, un déficit. Toutes les équipes attaquent vers la droite et la même échelle est utilisée pour faciliter les comparaisons entre les saisons.
