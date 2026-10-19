@@ -156,4 +156,14 @@ Au total, seulement 13 coordonnées invalides ont été exclues. Les conflits de
 Les cartes montrent uniquement le **volume de tirs au but**, et non leur qualité ou leur probabilité de devenir un but. Les tirs manqués et bloqués ne sont pas inclus.
 
 Les calculs utilisent une durée de 60 minutes par match, sans ajustement pour la prolongation. Les saisons écourtées de 2019-20 et 2020-21 peuvent aussi rendre certaines tendances moins représentatives.
+### Utilisation de l'intelligence artificielle
 
+L'intelligence artificielle a été utilisée comme outil d'assistance pour certaines parties de la tâche 5, notamment pour aider à la programmation et à la structuration du code des modules suivants :
+
+- **`data.py`** : prépare et oriente les données.
+- **`figure.py`** : construit les cartes interactives.
+- **`generate.py`** : coordonne le pipeline et génère les fichiers.
+
+L'IA a également été utilisée pour améliorer la mise en forme des fichiers README et corriger les fautes d'orthographe.
+
+Le code a ensuite été compris et vérifié à l'aide des tests et des validations présentés précédemment afin de confirmer le bon fonctionnement des fonctionnalités.
