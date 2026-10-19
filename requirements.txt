@@ -1,5 +1,8 @@
-requests
-pandas
+requests>=2.32
+pandas>=2.2
 matplotlib
 ipywidgets
 ipykernel
+numpy>=2.0
+plotly>=6.0
+pytest>=8.0

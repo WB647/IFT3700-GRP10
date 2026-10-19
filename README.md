@@ -50,4 +50,57 @@ from tache3_tidydata import season_to_df
 df = season_to_df("20162017")
 ```
 
+## Tâche 5 — Visualisations avancées : cartes de tirs
+
+### Objectif
+
+Cette tâche consiste à créer **cinq cartes interactives des tirs offensifs**, une pour chaque saison de 2016-17 à 2020-21. Elles permettent de sélectionner une équipe et de comparer ses tirs à la moyenne de la LNH selon leur emplacement sur la patinoire.
+
+Le code est regroupé dans `task5_shot_maps/`, sans modifier les tâches précédentes. Les cartes et les fichiers de validation sont générés dans `task5_outputs/html/`.
+
+### Méthode
+
+Les données proviennent de la tâche 3 avec `game_to_df`. Les coordonnées sont ajustées pour que toutes les équipes attaquent vers la droite, en utilisant les informations des événements et le sens d'attaque.
+
+La zone offensive est divisée en **cases de 5 × 5 pieds**. Pour chaque case, on calcule :
+
+```text
+taux_ligue = tirs_ligue / (2 × matchs_ligue)
+taux_équipe = tirs_équipe / matchs_équipe
+excédent = taux_équipe - taux_ligue
+```
+
+Le rouge indique un surplus de tirs par rapport à la ligue et le bleu, un déficit. La même échelle est utilisée pour les cinq saisons.
+
+Deux affichages sont disponibles :
+- **Valeurs brutes** : résultats exacts pour chaque case.
+- **Carte lissée** : version plus facile à lire, avec un filtre gaussien qui conserve le total des valeurs.
+
+### Exécution
+
+Depuis la racine du projet :
+
+```bash
+python -m pip install -r requirements.txt
+python -m task5_shot_maps.download --workers 2
+python -m task5_shot_maps.generate --data-dir data/raw --output-dir task5_outputs/html
+python -m task5_shot_maps.validate --data-dir data/raw --output-dir task5_outputs/html
+python -m pytest tests/task5 -q
+```
+
+Les cinq fichiers HTML générés sont interactifs et fonctionnent hors ligne. Les résultats des vérifications sont enregistrés dans `generation_audit.json` et `validation_report.json`.
+
+### Tests et validation
+
+Les **21 tests ont réussi** et la validation des cinq saisons confirme que les cartes fonctionnent correctement.
+
+Les vérifications portent notamment sur les coordonnées, les calculs, le lissage, les menus interactifs et la génération des fichiers.
+
+Au total, seulement 13 coordonnées invalides ont été exclues. Les conflits de sens d'attaque ont été traités et documentés dans l'audit. Deux générations successives ont également produit des fichiers identiques.
+
+### Limites
+
+Les cartes montrent uniquement le **volume de tirs au but**, et non leur qualité ou leur probabilité de devenir un but. Les tirs manqués et bloqués ne sont pas inclus.
+
+Les calculs utilisent une durée de 60 minutes par match, sans ajustement pour la prolongation. Les saisons écourtées de 2019-20 et 2020-21 peuvent aussi rendre certaines tendances moins représentatives.
 
