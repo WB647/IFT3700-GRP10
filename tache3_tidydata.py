@@ -53,6 +53,8 @@ def game_to_df(path):
             "empty_net": empty_net,
             "strength": strength,
             "strength_state": f"{own}v{opp}" if own is not None else None,
+            "is_home": is_home,
+            "home_defending_side": play.get("homeTeamDefendingSide"),
         })
     return pd.DataFrame(rows)
  

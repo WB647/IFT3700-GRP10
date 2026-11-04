@@ -6,3 +6,6 @@ ipykernel
 numpy>=2.0
 plotly>=6.0
 pytest>=8.0
+scikit-learn
+wandb
+joblib
