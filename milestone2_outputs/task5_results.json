@@ -1,0 +1,62 @@
+{
+  "training_seasons": [
+    20162017,
+    20172018,
+    20182019,
+    20192020,
+    20202021,
+    20212022
+  ],
+  "validation_season": 20222023,
+  "training_rows": 438574,
+  "validation_rows": 81990,
+  "logistic_reference_metrics": {
+    "auc": 0.6986756479869088,
+    "log_loss": 0.3078512678970675,
+    "accuracy": 0.8994023661422125
+  },
+  "best_parameters": {
+    "model__subsample": 0.9,
+    "model__n_estimators": 250,
+    "model__min_child_weight": 1,
+    "model__max_depth": 5,
+    "model__learning_rate": 0.07,
+    "model__colsample_bytree": 0.9
+  },
+  "selected_features": [
+    "shot_distance",
+    "time_since_last_event",
+    "game_seconds",
+    "shot_type",
+    "shot_angle",
+    "last_event_type",
+    "x",
+    "y"
+  ],
+  "experiments": {
+    "xgb_baseline": {
+      "metrics": {
+        "auc": 0.7011883882927766,
+        "log_loss": 0.30337122082710266,
+        "accuracy": 0.8992072203927308
+      },
+      "wandb_url": null
+    },
+    "xgb_tuned_full": {
+      "metrics": {
+        "auc": 0.7487866197641232,
+        "log_loss": 0.28864729404449463,
+        "accuracy": 0.9005000609830467
+      },
+      "wandb_url": null
+    },
+    "xgb_selected": {
+      "metrics": {
+        "auc": 0.7428097084545244,
+        "log_loss": 0.2912304997444153,
+        "accuracy": 0.8996341017197219
+      },
+      "wandb_url": null
+    }
+  }
+}

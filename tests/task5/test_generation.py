@@ -108,5 +108,5 @@ def test_generate_all_creates_the_five_required_html_files(tmp_path: Path):
     assert {path.name for path in paths} == {
         f"shot_map_{season}.html" for season in DEFAULT_SEASONS
     }
-    assert (output / "generation_audit.json").exists()
+    assert (output / "generation.json").exists()
     assert (output / "analysis_metrics.csv").exists()
