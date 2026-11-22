@@ -1,4 +1,9 @@
 data/
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.venv/
+wandb/
+milestone2_outputs/task4_features_*.csv.gz
+milestone2_outputs/models/
 wandb/

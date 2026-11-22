@@ -167,3 +167,31 @@ L'intelligence artificielle a été utilisée comme outil d'assistance pour cert
 L'IA a également été utilisée pour améliorer la mise en forme des fichiers README et corriger les fautes d'orthographe.
 
 Le code a ensuite été compris et vérifié à l'aide des tests et des validations présentés précédemment afin de confirmer le bon fonctionnement des fonctionnalités.
+
+## Étape 2 — Tâches 4 et 5
+
+Le dossier `milestone2/` ajoute les caractéristiques avancées et les expériences XGBoost demandées à l'étape 2, `milestone2.features` réutilise `tache3_tidydata.game_to_df` par l'adaptateur d'orientation existant, puis relit la liste complète `plays` afin d'associer à chaque tir l'événement immédiatement précédent.
+
+Installation et génération de l'artefact local du match 2017021065 :
+
+```bash
+python -m pip install -r requirements.txt
+python -m milestone2.generate_features --data-dir data/raw --output-dir milestone2_outputs
+```
+
+Après avoir téléchargé toutes les saisons 2016/17 à 2022/23, construire le jeu complet puis entraîner les modèles :
+
+```bash
+python -m milestone2.generate_features --dataset --data-dir data/raw --output-dir milestone2_outputs
+python -m milestone2.train_xgboost --dataset milestone2_outputs/task4_features_2016_2022.csv.gz --output-dir milestone2_outputs --tuning-iterations 8 --cv 3 --wandb-mode offline
+```
+
+Pour W&B, définir `WANDB_API_KEY` et `WANDB_ENTITY`, puis ajouter `--wandb-mode online --wandb-project <projet>` aux deux commandes. Aucun secret n'est stocké dans le dépôt. Les modèles complet et sélectionné sont alors ajoutés au registre; le modèle de référence est seulement journalisé, conformément aux consignes.
+
+Tests :
+
+```bash
+python -m pytest tests/milestone2 -q
+```
+
+L'exécution complète du 21 novembre 2026 a produit 520 564 observations. Sur la validation 2022/23 (81 990 observations), les AUC obtenues sont 0,7012 pour XGBoost distance-angle, 0,7488 pour le modèle complet réglé et 0,7428 après sélection de variables. Les quatre graphiques demandés et deux graphiques justificatifs sont sous `milestone2_outputs/figures/`. Les 9 tests propres à cette étape, ainsi que les 21 tests déjà présents, réussissent (30 tests au total). Le suivi W&B a été validé en mode hors ligne; l'authentification et la publication des liens restent à effectuer par l'équipe.

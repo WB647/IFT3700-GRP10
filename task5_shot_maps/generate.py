@@ -98,7 +98,7 @@ def generate_all(
             "teams": sorted(result.team_games),
         }
 
-    (output_dir / "generation_audit.json").write_text(
+    (output_dir / "generation.json").write_text(
         json.dumps(audit, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     pd.concat(metrics, ignore_index=True).to_csv(output_dir / "analysis_metrics.csv", index=False)

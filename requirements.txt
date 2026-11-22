@@ -9,3 +9,4 @@ pytest>=8.0
 scikit-learn
 wandb
 joblib
+xgboost
