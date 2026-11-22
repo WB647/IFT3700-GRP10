@@ -1,4 +1,6 @@
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
  
 import joblib
 import matplotlib.pyplot as plt
@@ -10,7 +12,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, auc, roc_auc_score, roc_curve
  
 ROOT = Path(__file__).resolve().parent
-PROJECT = "milestone-2"  # the Wandb workspace comes from the WANDB_ENTITY environment variable
+PROJECT = "ift3700-milestone-2"  # the Wandb workspace comes from the WANDB_ENTITY environment variable
 MODELS = {"distance": ["distance"], "angle": ["angle"], "distance_angle": ["distance", "angle"]}
  
  
@@ -37,7 +39,8 @@ def train_model(name, features, train, val):
     path = ROOT / "data" / "models" / f"logreg_{name}.joblib"
     path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(clf, path)
-    run.log_artifact(str(path), name=f"logreg_{name}", type="model")
+    logged = run.log_artifact(str(path), name=f"logreg_{name}", type="model")
+    run.link_artifact(logged, target_path=f"wandb-registry-model/logreg_{name}", aliases=["baseline"])
     run.finish()
     return proba
  

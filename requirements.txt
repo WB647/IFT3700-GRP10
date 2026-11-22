@@ -10,3 +10,4 @@ scikit-learn
 wandb
 joblib
 xgboost
+python-dotenv

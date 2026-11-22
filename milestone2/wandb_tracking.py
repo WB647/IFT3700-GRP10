@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 from pathlib import Path
 from typing import Any
@@ -103,7 +106,7 @@ def log_model_run(
     artifact.add_file(str(model_path))
     logged = run.log_artifact(artifact)
     if register and mode == "online":
-        run.link_artifact(logged, target_path=f"model-registry/{name}")
+        run.link_artifact(logged, target_path=f"wandb-registry-model/{name}")
     url = run.url
     run.finish()
     return url
