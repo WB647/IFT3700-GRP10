@@ -11,7 +11,7 @@
   "training_rows": 438574,
   "validation_rows": 81990,
   "logistic_reference_metrics": {
-    "auc": 0.6986756479869088,
+    "auc": 0.6986756562075642,
     "log_loss": 0.3078512678970675,
     "accuracy": 0.8994023661422125
   },
@@ -40,7 +40,7 @@
         "log_loss": 0.30337122082710266,
         "accuracy": 0.8992072203927308
       },
-      "wandb_url": null
+      "wandb_url": "https://forge.coreweave.com/wandb/IFT3700-2026-10/ift3700-milestone-2/runs/98sm4oh6"
     },
     "xgb_tuned_full": {
       "metrics": {
@@ -48,7 +48,7 @@
         "log_loss": 0.28864729404449463,
         "accuracy": 0.9005000609830467
       },
-      "wandb_url": null
+      "wandb_url": "https://forge.coreweave.com/wandb/IFT3700-2026-10/ift3700-milestone-2/runs/6jqim7zj"
     },
     "xgb_selected": {
       "metrics": {
@@ -56,7 +56,7 @@
         "log_loss": 0.2912304997444153,
         "accuracy": 0.8996341017197219
       },
-      "wandb_url": null
+      "wandb_url": "https://forge.coreweave.com/wandb/IFT3700-2026-10/ift3700-milestone-2/runs/gsqfsxh1"
     }
   }
 }

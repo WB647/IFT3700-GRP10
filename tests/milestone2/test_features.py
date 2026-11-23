@@ -92,3 +92,50 @@ def test_build_dataset_rejects_partial_regular_season(tmp_path: Path):
         assert "1 games, expected 1271" in str(error)
     else:
         raise AssertionError("A partial season must not be accepted for modeling")
+
+
+#Les tests qui suivent ont été générés avec l'aide de Claude
+
+def test_overtime_length_depends_on_game_type():
+    from milestone2.features import _game_seconds
+
+    # Regular season: a single 5-minute overtime after 60 minutes.
+    assert _game_seconds(4, "02:00", "OT", 2) == 3600 + 120
+    # Playoffs: every overtime lasts 20 minutes, so the 2nd OT starts at 80:00.
+    assert _game_seconds(4, "02:00", "OT", 3) == 3600 + 120
+    assert _game_seconds(5, "05:00", "OT", 3) == 4800 + 300
+    assert _game_seconds(6, "00:30", "OT", 3) == 6000 + 30
+
+
+def test_playoff_double_overtime_features(tmp_path: Path):
+    game = synthetic_game(2023030111, 20232024)
+    game["gameType"] = 3
+    for play in game["plays"]:
+        play["periodDescriptor"] = {"number": 5, "periodType": "OT"}
+    frame = build_game_features(write_game(tmp_path / "playoff.json", game)).set_index("event_id")
+    assert frame.loc[2, "game_seconds"] == 4800 + 65
+    assert frame.loc[2, "time_since_last_event"] == 5
+    assert frame["game_type"].eq(3).all()
+
+
+def test_build_dataset_can_select_playoffs(tmp_path: Path):
+    season_dir = tmp_path / "20232024"
+    write_game(season_dir / "regular.json", synthetic_game(2023020001, 20232024))
+    playoff = synthetic_game(2023030111, 20232024)
+    playoff["gameType"] = 3
+    write_game(season_dir / "playoff.json", playoff)
+
+    playoffs = build_dataset(tmp_path, ["20232024"], game_types=(3,), strict=False)
+    assert playoffs["game_type"].eq(3).all()
+    assert set(playoffs["game_id"]) == {2023030111}
+
+    both = build_dataset(tmp_path, ["20232024"], game_types=(2, 3), strict=False)
+    assert set(both["game_id"]) == {2023020001, 2023030111}
+
+
+def test_playoffs_are_not_rejected_by_regular_season_count(tmp_path: Path):
+    playoff = synthetic_game(2023030111, 20232024)
+    playoff["gameType"] = 3
+    write_game(tmp_path / "20232024" / "playoff.json", playoff)
+    frame = build_dataset(tmp_path, ["20232024"], game_types=(3,))
+    assert len(frame) == 3

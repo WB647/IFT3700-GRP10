@@ -84,6 +84,7 @@ def log_model_run(
     entity: str | None,
     mode: str,
     register: bool,
+    tags: list[str] | None = None,
 ) -> str | None:
     """Track one experiment and optionally link its model to the registry."""
 
@@ -97,7 +98,7 @@ def log_model_run(
         project,
         entity,
         mode,
-        tags=["task-5", "xgboost", name],
+        tags=tags or ["task-5", "xgboost", name],
         config=config,
     )
     run.log(metrics)

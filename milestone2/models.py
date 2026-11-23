@@ -177,8 +177,8 @@ def make_evaluation_figures(
     y_true: pd.Series,
     probabilities: dict[str, np.ndarray],
     output_dir: Path,
+    prefix: str = "task5",
 ) -> list[Path]:
-    """Create the four figures required by Tasks 3 and 5."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
     y = y_true.to_numpy(dtype=int)
@@ -191,7 +191,7 @@ def make_evaluation_figures(
     plt.xlabel("Taux de faux positifs")
     plt.ylabel("Taux de vrais positifs")
     plt.legend()
-    paths.append(_save_plot(output_dir / "task5_roc_auc.png"))
+    paths.append(_save_plot(output_dir / f"{prefix}_roc_auc.png"))
 
     for name, probability in probabilities.items():
         x, rate = _percentile_curve(y, probability)
@@ -199,7 +199,7 @@ def make_evaluation_figures(
     plt.xlabel("Centile de probabilité du modèle")
     plt.ylabel("Taux de buts")
     plt.legend()
-    paths.append(_save_plot(output_dir / "task5_goal_rate_percentile.png"))
+    paths.append(_save_plot(output_dir / f"{prefix}_goal_rate_percentile.png"))
 
     for name, probability in probabilities.items():
         order = np.argsort(-probability)
@@ -210,7 +210,7 @@ def make_evaluation_figures(
     plt.xlabel("Pourcentage des tirs, du xG le plus élevé au plus faible")
     plt.ylabel("Proportion cumulative des buts")
     plt.legend()
-    paths.append(_save_plot(output_dir / "task5_cumulative_goals.png"))
+    paths.append(_save_plot(output_dir / f"{prefix}_cumulative_goals.png"))
 
     plt.plot([0, 1], [0, 1], "k--", label="Calibration parfaite")
     for name, probability in probabilities.items():
@@ -219,7 +219,7 @@ def make_evaluation_figures(
     plt.xlabel("Probabilité moyenne prédite")
     plt.ylabel("Fréquence observée des buts")
     plt.legend()
-    paths.append(_save_plot(output_dir / "task5_reliability.png"))
+    paths.append(_save_plot(output_dir / f"{prefix}_reliability.png"))
     return paths
 
 

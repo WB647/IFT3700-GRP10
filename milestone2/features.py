@@ -14,6 +14,8 @@ from task5_shot_maps.data import load_game
 
 NET_X = 89.0
 TRAIN_SEASONS = tuple(f"{year}{year + 1}" for year in range(2016, 2023))
+TEST_SEASON = "20232024"
+REGULAR_SEASON, PLAYOFFS = 2, 3
 EXPECTED_REGULAR_GAMES = {
     "20162017": 1230,
     "20172018": 1271,
@@ -22,6 +24,7 @@ EXPECTED_REGULAR_GAMES = {
     "20202021": 868,
     "20212022": 1312,
     "20222023": 1312,
+    "20232024": 1312,
 }
 FEATURE_COLUMNS = [
     "game_seconds",
@@ -57,8 +60,14 @@ def _clock_seconds(value: object) -> float:
     return float(60 * minutes + seconds)
 
 
-def _game_seconds(period: object, time_in_period: object, period_type: object) -> float:
-    """Return elapsed game seconds for regular-season regulation/overtime."""
+def _game_seconds(
+    period: object, time_in_period: object, period_type: object, game_type: object = REGULAR_SEASON
+) -> float:
+    """Return elapsed game seconds.
+
+    Regular-season overtime lasts 5 minutes, but playoff overtime periods last
+    20 minutes like regulation periods, so every playoff period counts 1200 s.
+    """
 
     elapsed = _clock_seconds(time_in_period)
     try:
@@ -67,7 +76,11 @@ def _game_seconds(period: object, time_in_period: object, period_type: object) -
         return np.nan
     if not np.isfinite(elapsed) or number < 1:
         return np.nan
-    if number <= 3:
+    try:
+        is_playoff = int(game_type) == PLAYOFFS
+    except (TypeError, ValueError):
+        is_playoff = False
+    if number <= 3 or is_playoff:
         return (number - 1) * 1200.0 + elapsed
     if str(period_type).upper() == "OT":
         return 3600.0 + (number - 4) * 300.0 + elapsed
@@ -112,6 +125,7 @@ def build_game_features(path: Path | str) -> pd.DataFrame:
     shot_by_event = {int(row.event_id): row for row in shots.itertuples(index=False)}
     rows: list[dict[str, object]] = []
     plays = raw.get("plays", [])
+    game_type = raw.get("gameType")
 
     for index, play in enumerate(plays):
         if play.get("typeDescKey") not in {"shot-on-goal", "goal"}:
@@ -126,7 +140,7 @@ def build_game_features(path: Path | str) -> pd.DataFrame:
             continue
 
         current_seconds = _game_seconds(
-            descriptor.get("number"), play.get("timeInPeriod"), descriptor.get("periodType")
+            descriptor.get("number"), play.get("timeInPeriod"), descriptor.get("periodType"), game_type
         )
         rotation = _rotation(shot.x, shot.y, shot.x_attack, shot.y_attack)
         x = float(shot.x_attack) if pd.notna(shot.x_attack) else np.nan
@@ -150,6 +164,7 @@ def build_game_features(path: Path | str) -> pd.DataFrame:
                 previous_descriptor.get("number"),
                 previous.get("timeInPeriod"),
                 previous_descriptor.get("periodType"),
+                game_type,
             )
 
         elapsed = (
@@ -203,32 +218,34 @@ def build_dataset(
     data_dir: Path | str,
     seasons: Iterable[str] = TRAIN_SEASONS,
     *,
+    game_types: Iterable[int] = (REGULAR_SEASON,),
     strict: bool = True,
 ) -> pd.DataFrame:
-    """Build the regular-season dataset and reject missing requested seasons."""
-
+    
     data_dir = Path(data_dir)
     requested = tuple(str(season) for season in seasons)
+    allowed = {int(value) for value in game_types}
     missing = [season for season in requested if not any((data_dir / season).glob("*.json"))]
     if missing and strict:
         raise FileNotFoundError(f"Missing raw seasons: {', '.join(missing)}")
 
     frames: list[pd.DataFrame] = []
     for season in requested:
-        regular_paths: list[Path] = []
+        paths_by_type: dict[int, list[Path]] = {}
         for path in sorted((data_dir / season).glob("*.json")):
             try:
                 game_type = int(json.loads(path.read_text(encoding="utf-8"))["gameType"])
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                 continue
-            if game_type == 2:
-                regular_paths.append(path)
+            paths_by_type.setdefault(game_type, []).append(path)
         expected = EXPECTED_REGULAR_GAMES.get(season)
-        if strict and expected is not None and len(regular_paths) != expected:
+        regular_count = len(paths_by_type.get(REGULAR_SEASON, []))
+        if strict and REGULAR_SEASON in allowed and expected is not None and regular_count != expected:
             raise ValueError(
-                f"Incomplete regular season {season}: {len(regular_paths)} games, expected {expected}"
+                f"Incomplete regular season {season}: {regular_count} games, expected {expected}"
             )
-        frames.extend(build_game_features(path) for path in regular_paths)
+        for game_type in sorted(allowed):
+            frames.extend(build_game_features(path) for path in paths_by_type.get(game_type, []))
     if not frames:
-        raise ValueError("No regular-season games were available")
+        raise ValueError(f"No games of type {sorted(allowed)} were available")
     return pd.concat(frames, ignore_index=True)
