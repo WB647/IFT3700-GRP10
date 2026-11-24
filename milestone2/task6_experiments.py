@@ -29,13 +29,18 @@ from pathlib import Path
 from typing import Any, Callable
 
 import joblib
-import pandas as pd
+import matplotlib
 
-from .features import FEATURE_COLUMNS
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.inspection import permutation_importance
+
+from .features import FEATURE_COLUMNS, FEATURE_COLUMNS_V2, NEW_FEATURE_COLUMNS
 from .models import make_pipeline
 
 
-# Meilleure configuration trouvée par la recherche aléatoire de la tâche 5 (task5_results.json).
+#Meilleure configuration trouvée par la recherche aléatoire de la tâche 5 (task5_results.json).
 TASK5_BEST_PARAMS: dict[str, Any] = {
     "n_estimators": 250,
     "max_depth": 5,
@@ -48,10 +53,16 @@ TASK5_BEST_PARAMS: dict[str, Any] = {
 
 @dataclass(frozen=True)
 class Context:
-    """Informations transmises à chaque fonction d'expérience."""
+    """Informations transmises à chaque fonction d'expérience.
+
+    "figures_dir" est le dossier où une expérience peut enregistrer des
+    figures supplémentaires; elle retourne leurs chemins dans
+    "settings["figures"]" pour qu'elles soient aussi envoyées à W&B.
+    """
 
     output_dir: Path
     features: list[str]
+    figures_dir: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -79,8 +90,8 @@ def experiment(
 ) -> Callable:
     """Enregistre une fonction d'expérience sous le nom ``name``.
 
-    ``extra_columns`` liste les colonnes dont la fonction a besoin en plus des
-    caractéristiques (par exemple ``game_id`` pour une validation croisée
+    "extra_columns" liste les colonnes dont la fonction a besoin en plus des
+    caractéristiques (par exemple "game_id" pour une validation croisée
     groupée par match).
     """
 
@@ -113,7 +124,7 @@ def task5_best_params(output_dir: Path) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Référence : le XGBoost réglé de la tâche 5
+# Référence : le XGBoost réglé de la tâche 5, auquel chaque tentative est comparée.
 # ---------------------------------------------------------------------------
 
 @experiment(
@@ -136,5 +147,69 @@ def xgb_task5(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any
 
 
 # ---------------------------------------------------------------------------
-# Les tentatives de la tâche 6 (A, B, C, D)
+# Figures communes aux tentatives
+# ---------------------------------------------------------------------------
+
+def importance_figure(
+    model: Any,
+    train: pd.DataFrame,
+    context: Context,
+    name: str,
+    *,
+    sample_size: int = 50_000,
+) -> Path:
+    """Importance par permutation, calculée sur un échantillon de l'entraînement.
+
+    Comme à la tâche 5, la mesure est la baisse d'AUC quand on mélange une
+    colonne, et la validation 2022/23 n'est pas utilisée. Les nouvelles
+    caractéristiques de la tâche 6 sont en orange, celles de la tâche 4 en bleu.
+    """
+
+    sample = train.sample(min(sample_size, len(train)), random_state=42)
+    result = permutation_importance(
+        model,
+        sample[context.features],
+        sample["is_goal"],
+        scoring="roc_auc",
+        n_repeats=3,
+        random_state=42,
+        n_jobs=1,
+    )
+    importance = pd.Series(result.importances_mean, index=context.features).sort_values()
+    colors = ["tab:orange" if feature in NEW_FEATURE_COLUMNS else "tab:blue" for feature in importance.index]
+    figure, axis = plt.subplots(figsize=(8, 7))
+    axis.barh(importance.index, importance.to_numpy(), color=colors)
+    axis.set_xlabel("Diminution moyenne de l'AUC après permutation")
+    axis.set_title("Importance des caractéristiques (orange : nouvelles, tâche 6)")
+    directory = context.figures_dir or (context.output_dir / "task6" / "figures" / "runs")
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{name}_feature_importance.png"
+    figure.tight_layout()
+    figure.savefig(path, dpi=160, bbox_inches="tight")
+    plt.close(figure)
+    importance.sort_values(ascending=False).to_csv(directory / f"{name}_feature_importance.csv", header=["auc_drop"])
+    return path
+
+
+# ---------------------------------------------------------------------------
+# Tentative A : nouvelles caractéristiques, mêmes hyperparamètres que la tâche 5.
+# Seules les caractéristiques changent : tout écart avec xgb_task5 vient d'elles.
+# ---------------------------------------------------------------------------
+
+@experiment(
+    "xgb_features_v2",
+    features=FEATURE_COLUMNS_V2,
+    description="Tentative A : XGBoost (hyperparamètres de la tâche 5) avec les nouvelles caractéristiques",
+    tags=("xgboost", "features-v2", "attempt-a"),
+)
+def xgb_features_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any]]:
+    params = task5_best_params(context.output_dir)
+    model = make_pipeline(context.features, params)
+    model.fit(train[context.features], train["is_goal"])
+    figure = importance_figure(model, train, context, "xgb_features_v2")
+    return model, {"hyperparameters": params, "new_features": NEW_FEATURE_COLUMNS, "figures": [figure]}
+
+
+# ---------------------------------------------------------------------------
+# Les tentatives B, C et D seront ajoutées ci-dessous.
 # ---------------------------------------------------------------------------

@@ -44,10 +44,17 @@ def synthetic_dataset(path: Path, rows: int = 1500) -> Path:
             "rebound": rng.random(rows) < 0.1,
             "change_in_shot_angle": rng.uniform(0, 90, rows),
             "speed": rng.uniform(0, 50, rows),
-            "empty_net": False,
+            "empty_net": (rng.random(rows) < 0.02).astype(float),
+            "shooter_skaters": rng.choice([4.0, 5.0, 6.0], rows, p=[0.1, 0.8, 0.1]),
+            "opponent_skaters": rng.choice([4.0, 5.0], rows, p=[0.2, 0.8]),
+            "is_home": rng.integers(0, 2, rows).astype(float),
+            "last_event_same_team": rng.choice([0.0, 1.0, np.nan], rows),
+            "score_diff": rng.integers(-3, 4, rows).astype(float),
         }
     )
-    frame["is_goal"] = (rng.random(rows) < 0.35 * np.exp(-distance / 20)).astype(int)
+    frame["skater_diff"] = frame["shooter_skaters"] - frame["opponent_skaters"]
+    base = 0.35 * np.exp(-distance / 20)
+    frame["is_goal"] = (rng.random(rows) < np.where(frame["empty_net"] == 1, 0.8, base)).astype(int)
     frame.to_csv(path, index=False, compression="gzip")
     return path
 
@@ -134,8 +141,24 @@ def test_missing_feature_column_explains_how_to_rebuild(tmp_path: Path, monkeypa
     monkeypatch.setitem(
         EXPERIMENTS,
         "needs_new_column",
-        Experiment(name="needs_new_column", description="test", features=["shooter_skaters"],
+        Experiment(name="needs_new_column", description="test", features=["column_not_built_yet"],
                    train=lambda train, context: (None, {})),
     )
     with pytest.raises(ValueError, match="build-dataset"):
         run_experiment("needs_new_column", dataset=dataset, output_dir=tmp_path)
+
+
+def test_attempt_a_new_features(tmp_path: Path):
+    from milestone2.features import NEW_FEATURE_COLUMNS
+
+    dataset = synthetic_dataset(tmp_path / "data.csv.gz")
+    record = run_experiment("xgb_features_v2", dataset=dataset, output_dir=tmp_path)
+    assert record["settings"]["new_features"] == NEW_FEATURE_COLUMNS
+    assert "figures" not in record["settings"]  # retirée de la configuration, envoyée comme image
+    runs = tmp_path / "task6" / "figures" / "runs"
+    assert (runs / "xgb_features_v2_feature_importance.png").exists()
+    importance = pd.read_csv(runs / "xgb_features_v2_feature_importance.csv", index_col=0)
+    assert len(importance) == 22
+    
+    # Dans les données synthétiques, le filet désert fait presque toujours un but.
+    assert importance.loc["empty_net", "auc_drop"] > 0

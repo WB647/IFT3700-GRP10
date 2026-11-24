@@ -43,6 +43,19 @@ FEATURE_COLUMNS = [
     "change_in_shot_angle",
     "speed",
 ]
+
+#Caractéristiques ajoutées pour la tentative A de la tâche 6. FEATURE_COLUMNS ne change pas 
+NEW_FEATURE_COLUMNS = [
+    "empty_net",
+    "shooter_skaters",
+    "opponent_skaters",
+    "skater_diff",
+    "is_home",
+    "last_event_same_team",
+    "score_diff",
+]
+
+FEATURE_COLUMNS_V2 = FEATURE_COLUMNS + NEW_FEATURE_COLUMNS
 IDENTIFIER_COLUMNS = ["season", "game_type", "game_id", "event_id", "team"]
 
 
@@ -63,11 +76,7 @@ def _clock_seconds(value: object) -> float:
 def _game_seconds(
     period: object, time_in_period: object, period_type: object, game_type: object = REGULAR_SEASON
 ) -> float:
-    """Return elapsed game seconds.
-
-    Regular-season overtime lasts 5 minutes, but playoff overtime periods last
-    20 minutes like regulation periods, so every playoff period counts 1200 s.
-    """
+    """Retourne le nombre de secondes écoulées depuis le début du match."""
 
     elapsed = _clock_seconds(time_in_period)
     try:
@@ -104,6 +113,24 @@ def _signed_angle(x: float, y: float) -> float:
     return float(np.degrees(np.arctan2(y, NET_X - x)))
 
 
+def _flag(value: object) -> float:
+    """Convertit un booléen en 1.0/0.0 et garde les valeurs inconnues comme NaN."""
+
+    if value is None or (isinstance(value, float) and np.isnan(value)) or value is pd.NA:
+        return np.nan
+    return float(bool(value))
+
+
+def _skaters(strength_state: object) -> tuple[float, float]:
+    """Lit « 5v4 » (équipe qui tire contre adversaire) et retourne (5.0, 4.0), ou (NaN, NaN)."""
+
+    try:
+        own, opponent = str(strength_state).split("v")
+        return float(own), float(opponent)
+    except (TypeError, ValueError):
+        return np.nan, np.nan
+
+
 def _angle_difference(first: float, second: float) -> float:
     """Smallest absolute difference between two angles, in degrees."""
 
@@ -117,7 +144,9 @@ def build_game_features(path: Path | str) -> pd.DataFrame:
     same direction inferred by the existing Task-3/Task-5 data pipeline. The
     previous event is the immediately preceding item in the raw ``plays`` list,
     not merely the previous shot.
-    """
+
+    Tâche 6 : ajoute aussi les colonnes de "NEW_FEATURE_COLUMNS". Le score
+    utilisé par "score_diff" est celui d'avant le tir."""
 
     path = Path(path)
     raw = json.loads(path.read_text(encoding="utf-8"))
@@ -126,11 +155,22 @@ def build_game_features(path: Path | str) -> pd.DataFrame:
     rows: list[dict[str, object]] = []
     plays = raw.get("plays", [])
     game_type = raw.get("gameType")
+    home_id = raw.get("homeTeam", {}).get("id")
+    away_id = raw.get("awayTeam", {}).get("id")
+    goals = {home_id: 0, away_id: 0}
 
     for index, play in enumerate(plays):
+        descriptor = play.get("periodDescriptor", {})
+
+        # Score avant cet événement, puis mise à jour si c'est un but (hors tirs de barrage).
+
+        score_before = dict(goals)
+        if play.get("typeDescKey") == "goal" and descriptor.get("periodType") != "SO":
+            scorer = play.get("details", {}).get("eventOwnerTeamId")
+            if scorer in goals:
+                goals[scorer] += 1
         if play.get("typeDescKey") not in {"shot-on-goal", "goal"}:
             continue
-        descriptor = play.get("periodDescriptor", {})
         if descriptor.get("periodType") == "SO":
             continue
         event_id = play.get("eventId")
@@ -185,6 +225,16 @@ def build_game_features(path: Path | str) -> pd.DataFrame:
             change = _angle_difference(signed_angle, _signed_angle(previous_x, previous_y))
         speed = previous_distance / elapsed if np.isfinite(elapsed) and elapsed > 0 else np.nan
 
+        #Tache 6 : contexte du tir (avantage numérique, score, équipe de l'événement précédent).
+
+        shooter_id = play.get("details", {}).get("eventOwnerTeamId")
+        if shooter_id not in goals:
+            shooter_id = home_id if bool(shot.is_home) else away_id
+        opponent_id = away_id if shooter_id == home_id else home_id
+        shooter_skaters, opponent_skaters = _skaters(shot.strength_state)
+        previous_owner = previous.get("details", {}).get("eventOwnerTeamId") if previous is not None else None
+        same_team = np.nan if previous_owner is None else float(previous_owner == shooter_id)
+
         rows.append(
             {
                 "season": int(raw["season"]),
@@ -207,7 +257,13 @@ def build_game_features(path: Path | str) -> pd.DataFrame:
                 "rebound": bool(rebound),
                 "change_in_shot_angle": change,
                 "speed": speed,
-                "empty_net": shot.empty_net,
+                "empty_net": _flag(shot.empty_net),
+                "shooter_skaters": shooter_skaters,
+                "opponent_skaters": opponent_skaters,
+                "skater_diff": shooter_skaters - opponent_skaters,
+                "is_home": _flag(shot.is_home),
+                "last_event_same_team": same_team,
+                "score_diff": float(score_before[shooter_id] - score_before[opponent_id]),
                 "is_goal": int(bool(shot.is_goal)),
             }
         )
@@ -221,7 +277,12 @@ def build_dataset(
     game_types: Iterable[int] = (REGULAR_SEASON,),
     strict: bool = True,
 ) -> pd.DataFrame:
-    
+    """Construit le jeu de données pour les saisons et types de matchs demandés.
+
+    "game_types=(2,)" (par défaut) garde la saison régulière, "(3,)" les
+    séries. Les saisons manquantes et les saisons régulières incomplètes sont refusées.
+    """
+
     data_dir = Path(data_dir)
     requested = tuple(str(season) for season in seasons)
     allowed = {int(value) for value in game_types}

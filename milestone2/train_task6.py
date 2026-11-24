@@ -55,7 +55,7 @@ def prediction_path(output_dir: Path, name: str) -> Path:
 
 
 def _jsonable(value: Any) -> Any:
-    """Convertit les valeurs numpy pour pouvoir les enregistrer en JSON."""
+    """Convertit les valeurs numpy (et le reste) pour pouvoir les enregistrer en JSON."""
 
     return json.loads(json.dumps(value, default=lambda item: item.item() if hasattr(item, "item") else str(item)))
 
@@ -99,7 +99,6 @@ def run_experiment(
     wandb_entity: str | None = None,
     register: bool = False,
 ) -> dict[str, Any]:
-    
     """Entraîne une expérience, l'évalue sur 2022/23, enregistre tout et l'envoie à W&B."""
 
     if name not in EXPERIMENTS:
@@ -111,19 +110,23 @@ def run_experiment(
     print(f"[{name}] {spec.description}")
     print(f"[{name}] entraînement : {len(train)} tirs, validation : {len(validation)} tirs")
 
+    folder = task6_dir(output_dir)
+    context = Context(output_dir=output_dir, features=spec.features, figures_dir=folder / "figures" / "runs")
     start = perf_counter()
-    model, settings = spec.train(train, Context(output_dir=output_dir, features=spec.features))
+    model, settings = spec.train(train, context)
     train_seconds = perf_counter() - start
+    
+    # Figures supplémentaires produites par l'expérience (p. ex. importance des caractéristiques).
+    extra_figures = [Path(path) for path in settings.pop("figures", [])]
     start = perf_counter()
     probability = model.predict_proba(validation[spec.features])[:, 1]
     predict_seconds = perf_counter() - start
 
     metrics = probability_metrics(validation["is_goal"], probability)
     metrics.update(train_seconds=round(train_seconds, 2), predict_seconds=round(predict_seconds, 2))
-    folder = task6_dir(output_dir)
     save_predictions(validation, probability, prediction_path(output_dir, name))
     model_path = save_model(model, folder / "models" / f"{name}.joblib")
-    figure_paths = _run_figures(name, output_dir)
+    figure_paths = _run_figures(name, output_dir) + extra_figures
 
     config = _jsonable(
         {
