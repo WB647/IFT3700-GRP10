@@ -162,3 +162,52 @@ def test_attempt_a_new_features(tmp_path: Path):
     
     # Dans les données synthétiques, le filet désert fait presque toujours un but.
     assert importance.loc["empty_net", "auc_drop"] > 0
+
+def test_native_pipeline_keeps_missing_values_and_zeros(tmp_path: Path):
+    from milestone2.task6_experiments import make_native_pipeline
+
+    frame = pd.DataFrame(
+        {
+            "speed": [np.nan, 0.0, 12.5, 3.0],
+            "rebound": [True, False, False, True],
+            "shot_type": ["wrist", np.nan, "slap", "wrist"],
+            "is_goal": [0, 1, 0, 1],
+        }
+    )
+    features = ["speed", "rebound", "shot_type"]
+    model = make_native_pipeline(features, {"n_estimators": 3})
+    model.fit(frame[features], frame["is_goal"])
+    matrix = model[:-1].transform(frame[features])
+    assert isinstance(matrix, np.ndarray) and matrix.dtype == float
+    assert np.isnan(matrix[0, 0])  # valeur manquante conservée, pas remplacée par la médiane
+    assert matrix[1, 0] == 0.0 and matrix[1, 1] == 0.0  # les zéros restent des zéros
+    joblib.dump(model, tmp_path / "model.joblib")
+    reloaded = joblib.load(tmp_path / "model.joblib")
+    assert np.allclose(reloaded.predict_proba(frame[features]), model.predict_proba(frame[features]))
+
+
+def test_parse_params():
+    from milestone2.train_task6 import parse_params
+
+    assert parse_params(["n_iter=40", "game_fraction=0.5", "name=abc"]) == {
+        "n_iter": 40,
+        "game_fraction": 0.5,
+        "name": "abc",
+    }
+    assert parse_params(None) == {}
+    with pytest.raises(ValueError):
+        parse_params(["n_iter"])
+
+
+def test_attempt_b_small_search(tmp_path: Path):
+    dataset = synthetic_dataset(tmp_path / "data.csv.gz")
+    params = {"n_iter": 2, "folds": 2, "game_fraction": 0.5}
+    record = run_experiment("xgb_tuned_v2", dataset=dataset, output_dir=tmp_path, params=params)
+    settings = record["settings"]
+    assert record["params"] == params
+    assert settings["n_iter"] == 2 and settings["folds"] == 2
+    assert settings["cv_log_loss"] > 0
+    assert {"max_depth", "learning_rate", "reg_lambda"}.issubset(settings["hyperparameters"])
+    runs = tmp_path / "task6" / "figures" / "runs"
+    assert (runs / "xgb_tuned_v2_tuning.png").exists()
+    assert len(pd.read_csv(runs / "xgb_tuned_v2_tuning.csv")) == 2

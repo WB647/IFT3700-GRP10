@@ -6,6 +6,7 @@ Commandes (depuis la racine du projet) ::
     python -m milestone2.train_task6 build-dataset
     python -m milestone2.train_task6 run --experiment xgb_task5
     python -m milestone2.train_task6 run --experiment <name> --wandb-mode online --register
+    python -m milestone2.train_task6 run --experiment xgb_tuned_v2 --param n_iter=40
     python -m milestone2.train_task6 figures --curves xgb_task5 <name> ... --final <name>
 
 Chaque ``run`` utilise la séparation de la tâche 5 (entraînement 2016/17-2021/22,
@@ -98,8 +99,12 @@ def run_experiment(
     wandb_project: str = DEFAULT_PROJECT,
     wandb_entity: str | None = None,
     register: bool = False,
+    params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Entraîne une expérience, l'évalue sur 2022/23, enregistre tout et l'envoie à W&B."""
+    """Entraîne une expérience, l'évalue sur 2022/23, enregistre tout et l'envoie à W&B.
+
+    ``params`` contient les options propres à l'expérience (``--param clé=valeur``).
+    """
 
     if name not in EXPERIMENTS:
         raise KeyError(f"Expérience inconnue : {name}. Disponibles : {sorted(EXPERIMENTS)}")
@@ -111,11 +116,15 @@ def run_experiment(
     print(f"[{name}] entraînement : {len(train)} tirs, validation : {len(validation)} tirs")
 
     folder = task6_dir(output_dir)
-    context = Context(output_dir=output_dir, features=spec.features, figures_dir=folder / "figures" / "runs")
+    context = Context(
+        output_dir=output_dir,
+        features=spec.features,
+        figures_dir=folder / "figures" / "runs",
+        params=dict(params or {}),
+    )
     start = perf_counter()
     model, settings = spec.train(train, context)
     train_seconds = perf_counter() - start
-    
     # Figures supplémentaires produites par l'expérience (p. ex. importance des caractéristiques).
     extra_figures = [Path(path) for path in settings.pop("figures", [])]
     start = perf_counter()
@@ -135,6 +144,7 @@ def run_experiment(
             "features": spec.features,
             "training_seasons": sorted(train["season"].astype(int).unique().tolist()),
             "validation_season": VALIDATION_SEASON,
+            "params": dict(params or {}),
             "settings": settings,
         }
     )
@@ -168,6 +178,21 @@ def run_experiment(
     if url:
         print(f"[{name}] W&B : {url}")
     return record
+
+
+def parse_params(values: list[str] | None) -> dict[str, Any]:
+    """Transforme ``["n_iter=40", "game_fraction=0.5"]`` en ``{"n_iter": 40, "game_fraction": 0.5}``."""
+
+    params: dict[str, Any] = {}
+    for item in values or []:
+        if "=" not in item:
+            raise ValueError(f"--param attend clé=valeur, reçu : {item!r}")
+        key, raw = item.split("=", 1)
+        try:
+            params[key.strip()] = json.loads(raw)
+        except json.JSONDecodeError:
+            params[key.strip()] = raw
+    return params
 
 
 def _run_figures(name: str, output_dir: Path) -> list[Path]:
@@ -234,6 +259,12 @@ def main() -> None:
     run.add_argument("--wandb-project", default=DEFAULT_PROJECT)
     run.add_argument("--wandb-entity")
     run.add_argument("--register", action="store_true", help="Lier le modèle au registre W&B (mode online).")
+    run.add_argument(
+        "--param",
+        action="append",
+        metavar="CLÉ=VALEUR",
+        help="Option propre à l'expérience, p. ex. --param n_iter=40 (répétable).",
+    )
 
     figures = commands.add_parser("figures", help="Construire les 4 figures et le tableau du blogue.")
     figures.add_argument("--curves", nargs="+", help="Expériences à afficher (par défaut : toutes).")
@@ -257,6 +288,7 @@ def main() -> None:
                 wandb_project=args.wandb_project,
                 wandb_entity=args.wandb_entity,
                 register=args.register,
+                params=parse_params(args.param),
             )
     else:
         make_task6_figures(args.output_dir, args.curves, args.final)

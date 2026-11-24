@@ -1,0 +1,72 @@
+{
+  "experiment": "xgb_tuned_v2",
+  "description": "Tentative B : XGBoost réglé (log loss, validation croisée par match, valeurs manquantes natives)",
+  "features": [
+    "game_seconds",
+    "period",
+    "x",
+    "y",
+    "shot_distance",
+    "shot_angle",
+    "shot_type",
+    "last_event_type",
+    "last_event_x",
+    "last_event_y",
+    "time_since_last_event",
+    "distance_from_last_event",
+    "rebound",
+    "change_in_shot_angle",
+    "speed",
+    "empty_net",
+    "shooter_skaters",
+    "opponent_skaters",
+    "skater_diff",
+    "is_home",
+    "last_event_same_team",
+    "score_diff"
+  ],
+  "training_seasons": [
+    20162017,
+    20172018,
+    20182019,
+    20192020,
+    20202021,
+    20212022
+  ],
+  "validation_season": 20222023,
+  "params": {},
+  "settings": {
+    "hyperparameters": {
+      "subsample": 0.9,
+      "reg_lambda": 5.0,
+      "reg_alpha": 0.5,
+      "n_estimators": 400,
+      "min_child_weight": 1,
+      "max_depth": 5,
+      "learning_rate": 0.05,
+      "gamma": 0.1,
+      "colsample_bytree": 0.5
+    },
+    "cv_log_loss": 0.26410533984502155,
+    "cv_log_loss_std": 0.0035794602620172256,
+    "n_iter": 30,
+    "folds": 3,
+    "game_fraction": 0.3,
+    "search_games": 2110,
+    "search_shots": 131010
+  },
+  "metrics": {
+    "auc": 0.763318745703721,
+    "log_loss": 0.2786524580844024,
+    "brier": 0.08016937581121115,
+    "ece": 0.008607956943670302,
+    "xg_goal_ratio": 1.0652869031215941,
+    "accuracy": 0.9046834979875594,
+    "shots": 81990,
+    "goals": 8248,
+    "train_seconds": 264.22,
+    "predict_seconds": 0.33
+  },
+  "wandb_url": "https://forge.coreweave.com/wandb/IFT3700-2026-10/ift3700-milestone-2/runs/smhk2uoh",
+  "registered": true
+}
