@@ -258,3 +258,76 @@ def test_attempt_c_models(tmp_path: Path, name: str, params: dict):
         assert "history" not in settings  # la courbe va dans la figure, pas dans la configuration
     if name == "hgb_v2":
         assert 1 <= record["settings"]["iterations_used"] <= 30
+
+
+class FixedBase:
+    """Faux modèle de base qui retourne la colonne « raw » comme probabilité."""
+
+    def predict_proba(self, frame):
+        raw = frame["raw"].to_numpy()
+        return np.column_stack([1 - raw, raw])
+
+
+@pytest.mark.parametrize("method", ["isotonic", "sigmoid"])
+def test_calibrated_model_corrects_overconfident_probabilities(method):
+    from milestone2.task6_experiments import CalibratedModel
+
+    rng = np.random.default_rng(0)
+    raw = rng.uniform(0.05, 0.9, 20_000)
+    y = (rng.random(raw.size) < raw / 3).astype(int)  # le modèle de base surestime 3 fois
+    model = CalibratedModel(FixedBase(), method).fit_calibrator(raw, y)
+    calibrated = model.predict_proba(pd.DataFrame({"raw": raw}))[:, 1]
+    assert np.all(np.diff(model.calibrate(np.sort(raw))) >= -1e-12)  # croissante
+    assert calibrated.min() >= CalibratedModel.EPSILON and calibrated.max() <= 1 - CalibratedModel.EPSILON
+    assert calibrated.sum() / y.sum() == pytest.approx(1.0, abs=0.05)
+    assert probability_metrics(y, calibrated)["log_loss"] < probability_metrics(y, raw)["log_loss"]
+
+
+def test_attempt_d_weighting_inflates_then_calibration_repairs(tmp_path: Path):
+    dataset = synthetic_dataset(tmp_path / "data.csv.gz", rows=4000)
+    plain = run_experiment("xgb_features_v2", dataset=dataset, output_dir=tmp_path)
+    weighted = run_experiment("xgb_weighted_v2", dataset=dataset, output_dir=tmp_path)
+    repaired = run_experiment(
+        "xgb_isotonic_v2", dataset=dataset, output_dir=tmp_path, params={"base": "xgb_weighted_v2"}
+    )
+    frame = pd.read_csv(dataset)
+    train = frame[frame["season"] != 20222023]
+    expected_weight = (len(train) - train["is_goal"].sum()) / train["is_goal"].sum()
+    assert weighted["settings"]["scale_pos_weight"] == pytest.approx(expected_weight)
+    # La pondération gonfle les buts espérés; la calibration les ramène près du nombre réel de buts.
+    assert weighted["metrics"]["xg_goal_ratio"] > 1.5 * plain["metrics"]["xg_goal_ratio"]
+    assert abs(repaired["metrics"]["xg_goal_ratio"] - 1) < abs(weighted["metrics"]["xg_goal_ratio"] - 1)
+    assert repaired["metrics"]["log_loss"] < weighted["metrics"]["log_loss"]
+    settings = repaired["settings"]
+    assert settings["base"] == "xgb_weighted_v2" and settings["calibration_season"] == 20212022
+    assert settings["base_training_seasons"] == [20202021]
+    assert (tmp_path / "task6" / "figures" / "runs" / "xgb_isotonic_v2_calibration_map.png").exists()
+    reloaded = joblib.load(tmp_path / "task6" / "models" / "xgb_isotonic_v2.joblib")
+    validation = frame[frame["season"] == 20222023]
+    saved = pd.read_csv(prediction_path(tmp_path, "xgb_isotonic_v2"))
+    assert np.allclose(reloaded.predict_proba(validation[EXPERIMENTS["xgb_isotonic_v2"].features])[:, 1],
+                       saved["probability"])
+
+
+def test_calibration_of_tuned_model_requires_attempt_b(tmp_path: Path):
+    dataset = synthetic_dataset(tmp_path / "data.csv.gz")
+    with pytest.raises(FileNotFoundError, match="xgb_tuned_v2"):
+        run_experiment("xgb_sigmoid_v2", dataset=dataset, output_dir=tmp_path, params={"base": "xgb_tuned_v2"})
+
+
+def test_run_name_keeps_variants_side_by_side(tmp_path: Path):
+    dataset = synthetic_dataset(tmp_path / "data.csv.gz", rows=3000)
+    run_experiment("xgb_isotonic_v2", dataset=dataset, output_dir=tmp_path)
+    variant = run_experiment(
+        "xgb_isotonic_v2",
+        dataset=dataset,
+        output_dir=tmp_path,
+        params={"base": "xgb_weighted_v2"},
+        run_name="xgb_weighted_isotonic",
+    )
+    assert variant["experiment"] == "xgb_isotonic_v2" and variant["run_name"] == "xgb_weighted_isotonic"
+    for name in ["xgb_isotonic_v2", "xgb_weighted_isotonic"]:
+        assert prediction_path(tmp_path, name).exists()
+        assert (tmp_path / "task6" / "figures" / "runs" / f"{name}_calibration_map.png").exists()
+    result = make_task6_figures(tmp_path, curves=["xgb_isotonic_v2", "xgb_weighted_isotonic"])
+    assert set(result["summary"].index) == {"xgb_isotonic_v2", "xgb_weighted_isotonic"}

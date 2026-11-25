@@ -7,6 +7,7 @@ Commandes (depuis la racine du projet) ::
     python -m milestone2.train_task6 run --experiment xgb_task5
     python -m milestone2.train_task6 run --experiment <name> --wandb-mode online --register
     python -m milestone2.train_task6 run --experiment xgb_tuned_v2 --param n_iter=40
+    python -m milestone2.train_task6 run --experiment xgb_isotonic_v2 --param base=xgb_weighted_v2 --name xgb_weighted_isotonic
     python -m milestone2.train_task6 figures --curves xgb_task5 <name> ... --final <name>
 
 Chaque ``run`` utilise la séparation de la tâche 5 (entraînement 2016/17-2021/22,
@@ -100,15 +101,20 @@ def run_experiment(
     wandb_entity: str | None = None,
     register: bool = False,
     params: dict[str, Any] | None = None,
+    run_name: str | None = None,
 ) -> dict[str, Any]:
     """Entraîne une expérience, l'évalue sur 2022/23, enregistre tout et l'envoie à W&B.
 
     ``params`` contient les options propres à l'expérience (``--param clé=valeur``).
+    ``run_name`` (``--name``) enregistre l'exécution sous un autre nom que celui
+    de l'expérience, pour garder plusieurs variantes côte à côte (fichiers,
+    figures et expérience W&B ``task6_<nom>``).
     """
 
     if name not in EXPERIMENTS:
         raise KeyError(f"Expérience inconnue : {name}. Disponibles : {sorted(EXPERIMENTS)}")
     spec = EXPERIMENTS[name]
+    experiment_name, name = name, (run_name or name)
     output_dir = Path(output_dir)
     frame = load_dataset(dataset, spec.features + spec.extra_columns)
     train, validation = split_train_validation(frame)
@@ -121,6 +127,7 @@ def run_experiment(
         features=spec.features,
         figures_dir=folder / "figures" / "runs",
         params=dict(params or {}),
+        name=name,
     )
     start = perf_counter()
     model, settings = spec.train(train, context)
@@ -139,7 +146,8 @@ def run_experiment(
 
     config = _jsonable(
         {
-            "experiment": name,
+            "experiment": experiment_name,
+            "run_name": name,
             "description": spec.description,
             "features": spec.features,
             "training_seasons": sorted(train["season"].astype(int).unique().tolist()),
@@ -260,6 +268,10 @@ def main() -> None:
     run.add_argument("--wandb-entity")
     run.add_argument("--register", action="store_true", help="Lier le modèle au registre W&B (mode online).")
     run.add_argument(
+        "--name",
+        help="Enregistrer l'exécution sous ce nom (une seule expérience), p. ex. pour une variante.",
+    )
+    run.add_argument(
         "--param",
         action="append",
         metavar="CLÉ=VALEUR",
@@ -279,6 +291,8 @@ def main() -> None:
     elif args.command == "build-dataset":
         build_task6_dataset(args.data_dir, args.output)
     elif args.command == "run":
+        if args.name and len(args.experiment) > 1:
+            parser.error("--name ne s'utilise qu'avec une seule expérience")
         for name in args.experiment:
             run_experiment(
                 name,
@@ -289,6 +303,7 @@ def main() -> None:
                 wandb_entity=args.wandb_entity,
                 register=args.register,
                 params=parse_params(args.param),
+                run_name=args.name,
             )
     else:
         make_task6_figures(args.output_dir, args.curves, args.final)

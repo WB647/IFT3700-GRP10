@@ -1,0 +1,76 @@
+{
+  "experiment": "xgb_isotonic_v2",
+  "run_name": "xgb_isotonic_v2",
+  "description": "Tentative D : XGBoost (A par défaut, --param base=...) + calibration isotonique apprise sur 2021/22",
+  "features": [
+    "game_seconds",
+    "period",
+    "x",
+    "y",
+    "shot_distance",
+    "shot_angle",
+    "shot_type",
+    "last_event_type",
+    "last_event_x",
+    "last_event_y",
+    "time_since_last_event",
+    "distance_from_last_event",
+    "rebound",
+    "change_in_shot_angle",
+    "speed",
+    "empty_net",
+    "shooter_skaters",
+    "opponent_skaters",
+    "skater_diff",
+    "is_home",
+    "last_event_same_team",
+    "score_diff"
+  ],
+  "training_seasons": [
+    20162017,
+    20172018,
+    20182019,
+    20192020,
+    20202021,
+    20212022
+  ],
+  "validation_season": 20222023,
+  "params": {},
+  "settings": {
+    "base": "xgb_features_v2",
+    "base_settings": {
+      "hyperparameters": {
+        "subsample": 0.9,
+        "n_estimators": 250,
+        "min_child_weight": 1,
+        "max_depth": 5,
+        "learning_rate": 0.07,
+        "colsample_bytree": 0.9
+      }
+    },
+    "method": "isotonic",
+    "base_training_seasons": [
+      20162017,
+      20172018,
+      20182019,
+      20192020,
+      20202021
+    ],
+    "calibration_season": 20212022,
+    "calibration_shots": 83004
+  },
+  "metrics": {
+    "auc": 0.7609308977039801,
+    "log_loss": 0.2792931548576089,
+    "brier": 0.0802735045106591,
+    "ece": 0.006185273712006529,
+    "xg_goal_ratio": 1.017104956679393,
+    "accuracy": 0.9045859251128187,
+    "shots": 81990,
+    "goals": 8248,
+    "train_seconds": 7.1,
+    "predict_seconds": 0.2
+  },
+  "wandb_url": "https://forge.coreweave.com/wandb/IFT3700-2026-10/ift3700-milestone-2/runs/dpltnn04",
+  "registered": false
+}

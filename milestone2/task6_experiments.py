@@ -40,6 +40,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.inspection import permutation_importance
+from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 from sklearn.model_selection import GroupKFold, RandomizedSearchCV
@@ -72,12 +73,15 @@ class Context:
     ``settings["figures"]`` pour qu'elles soient aussi envoyées à W&B.
     ``params`` contient les options passées en ligne de commande avec
     ``--param clé=valeur`` (p. ex. le nombre de configurations à essayer).
+    ``name`` est le nom sous lequel l'exécution est enregistrée : celui de
+    l'expérience, ou celui donné avec ``--name`` pour une variante.
     """
 
     output_dir: Path
     features: list[str]
     figures_dir: Path | None = None
     params: dict[str, Any] = field(default_factory=dict)
+    name: str = ""
 
 
 @dataclass(frozen=True)
@@ -221,7 +225,7 @@ def xgb_features_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[st
     params = task5_best_params(context.output_dir)
     model = make_pipeline(context.features, params)
     model.fit(train[context.features], train["is_goal"])
-    figure = importance_figure(model, train, context, "xgb_features_v2")
+    figure = importance_figure(model, train, context, context.name or "xgb_features_v2")
     return model, {"hyperparameters": params, "new_features": NEW_FEATURE_COLUMNS, "figures": [figure]}
 
 
@@ -363,7 +367,7 @@ def xgb_tuned_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, 
     model = make_native_pipeline(context.features, best_params)
     model.fit(train[context.features], train["is_goal"])
 
-    figure = tuning_figure(results, context, "xgb_tuned_v2")
+    figure = tuning_figure(results, context, context.name or "xgb_tuned_v2")
     table = results[[column for column in results.columns if column.startswith("param_")]].copy()
     table.columns = [column.removeprefix("param_model__") for column in table.columns]
     table["cv_log_loss"] = -results["mean_test_score"]
@@ -587,7 +591,7 @@ def mlp_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any]]:
     # Accepte --param hidden_layer_sizes=64 (une couche) ou =[128,64] (plusieurs couches).
     params["hidden_layer_sizes"] = [int(layers)] if isinstance(layers, (int, float)) else [int(size) for size in layers]
     model, details = fit_mlp_on_log_loss(train, context.features, params)
-    figure = mlp_curve_figure(details.pop("history"), details["best_epoch"], context, "mlp_v2")
+    figure = mlp_curve_figure(details.pop("history"), details["best_epoch"], context, context.name or "mlp_v2")
     return model, {"hyperparameters": params, **details, "figures": [figure]}
 
 
@@ -610,5 +614,179 @@ def logreg_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any
 
 
 # ---------------------------------------------------------------------------
-# La tentative D sera ajoutée ci-dessous.
+# Tentative D : déséquilibre des classes et calibration.
 # ---------------------------------------------------------------------------
+
+def _fit_base(name: str, frame: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any]]:
+    """Entraîne un des modèles XGBoost de base de la tentative D sur ``frame``.
+
+    - ``xgb_features_v2`` : configuration de la tentative A;
+    - ``xgb_weighted_v2`` : la même, avec les buts pondérés (``scale_pos_weight``);
+    - ``xgb_tuned_v2`` : hyperparamètres trouvés par la tentative B (lancer B d'abord).
+    """
+
+    params = task5_best_params(context.output_dir)
+    if name == "xgb_features_v2":
+        model = make_pipeline(context.features, params)
+        info: dict[str, Any] = {"hyperparameters": params}
+    elif name == "xgb_weighted_v2":
+        goals = int(frame["is_goal"].sum())
+        weight = float(context.params.get("scale_pos_weight", (len(frame) - goals) / max(goals, 1)))
+        model = make_pipeline(context.features, {**params, "scale_pos_weight": weight})
+        info = {"hyperparameters": params, "scale_pos_weight": weight}
+    elif name == "xgb_tuned_v2":
+        path = context.output_dir / "task6" / "metrics" / "xgb_tuned_v2.json"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"{path} est introuvable. Lance d'abord : python -m milestone2.train_task6 run --experiment xgb_tuned_v2"
+            )
+        params = json.loads(path.read_text(encoding="utf-8"))["settings"]["hyperparameters"]
+        model = make_native_pipeline(context.features, params)
+        info = {"hyperparameters": params}
+    else:
+        raise ValueError(f"Modèle de base inconnu : {name} (xgb_features_v2, xgb_weighted_v2 ou xgb_tuned_v2)")
+    model.fit(frame[context.features], frame["is_goal"])
+    return model, info
+
+
+@experiment(
+    "xgb_weighted_v2",
+    features=FEATURE_COLUMNS_V2,
+    description="Tentative D : XGBoost avec buts pondérés (scale_pos_weight = non-buts / buts), sinon comme A",
+    tags=("xgboost", "features-v2", "attempt-d", "class-weight"),
+)
+def xgb_weighted_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any]]:
+    """Seule différence avec la tentative A : chaque but compte autant que ~9 non-buts à l'entraînement.
+
+    Le classement des tirs (AUC) change peu, mais les probabilités sont
+    gonflées : le modèle apprend sur une population où les buts semblent
+    beaucoup plus fréquents qu'en réalité. À comparer avec xgb_features_v2.
+    """
+
+    return _fit_base("xgb_weighted_v2", train, context)
+
+
+class CalibratedModel:
+    """Modèle de base suivi d'une fonction de calibration apprise sur une saison mise de côté.
+
+    ``isotonic`` : fonction croissante en escalier, très flexible (régression
+    isotonique). ``sigmoid`` : méthode de Platt, une régression logistique sur
+    le logit de la probabilité brute, plus rigide mais plus stable. Les
+    probabilités sont bornées dans [1e-4, 1 - 1e-4] pour qu'un but ne reçoive
+    jamais une probabilité nulle (log loss infinie).
+    """
+
+    EPSILON = 1e-4
+
+    def __init__(self, base: Any, method: str) -> None:
+        if method not in {"isotonic", "sigmoid"}:
+            raise ValueError(f"Méthode de calibration inconnue : {method}")
+        self.base = base
+        self.method = method
+        self.calibrator: Any = None
+        self.classes_ = np.array([0, 1])
+
+    @staticmethod
+    def _logit(probability: np.ndarray) -> np.ndarray:
+        clipped = np.clip(probability, 1e-6, 1 - 1e-6)
+        return np.log(clipped / (1 - clipped)).reshape(-1, 1)
+
+    def fit_calibrator(self, raw: np.ndarray, y: np.ndarray) -> "CalibratedModel":
+        if self.method == "isotonic":
+            self.calibrator = IsotonicRegression(y_min=0.0, y_max=1.0, out_of_bounds="clip").fit(raw, y)
+        else:
+            self.calibrator = LogisticRegression(C=1e6, max_iter=1000).fit(self._logit(raw), y)
+        return self
+
+    def calibrate(self, raw: np.ndarray) -> np.ndarray:
+        if self.method == "isotonic":
+            calibrated = self.calibrator.predict(raw)
+        else:
+            calibrated = self.calibrator.predict_proba(self._logit(raw))[:, 1]
+        return np.clip(calibrated, self.EPSILON, 1 - self.EPSILON)
+
+    def predict_proba(self, frame: pd.DataFrame) -> np.ndarray:
+        probability = self.calibrate(self.base.predict_proba(frame)[:, 1])
+        return np.column_stack([1 - probability, probability])
+
+
+def calibration_map_figure(
+    model: CalibratedModel, raw: np.ndarray, y: np.ndarray, context: Context, name: str, *, n_bins: int = 15
+) -> Path:
+    """Ce que la calibration a appris : probabilité brute (x) → probabilité calibrée (y).
+
+    Les points sont les taux de buts observés par groupe de tirs de la saison
+    de calibration; la courbe est la fonction apprise; la diagonale correspond
+    à un modèle déjà parfaitement calibré.
+    """
+
+    edges = np.quantile(raw, np.linspace(0, 1, n_bins + 1))
+    bins = np.clip(np.searchsorted(edges[1:-1], raw, side="right"), 0, n_bins - 1)
+    observed = pd.DataFrame({"raw": raw, "goal": y, "bin": bins}).groupby("bin").mean()
+    grid = np.linspace(raw.min(), raw.max(), 300)
+    upper = float(max(raw.max(), observed["goal"].max())) * 1.05
+    figure, axis = plt.subplots(figsize=(6.5, 6))
+    axis.plot([0, upper], [0, upper], linestyle="--", color="gray", label="aucune correction (diagonale)")
+    axis.scatter(observed["raw"], observed["goal"], color="tab:blue", label="taux de buts observé (groupes de tirs)")
+    axis.plot(grid, model.calibrate(grid), color="tab:red", label=f"fonction apprise ({model.method})")
+    axis.set_xlim(0, upper)
+    axis.set_ylim(0, upper)
+    axis.set_xlabel("Probabilité brute du modèle de base")
+    axis.set_ylabel("Probabilité après calibration")
+    axis.set_title("Calibration apprise sur la saison mise de côté")
+    axis.legend()
+    directory = context.figures_dir or (context.output_dir / "task6" / "figures" / "runs")
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{name}_calibration_map.png"
+    figure.tight_layout()
+    figure.savefig(path, dpi=160, bbox_inches="tight")
+    plt.close(figure)
+    return path
+
+
+def _calibrated_experiment(method: str) -> Callable[[pd.DataFrame, Context], tuple[Any, dict[str, Any]]]:
+    """Crée la fonction d'une expérience de calibration (isotonique ou sigmoïde)."""
+
+    name = f"xgb_{method}_v2"
+
+    def train_calibrated(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any]]:
+        """Base entraînée sur toutes les saisons d'entraînement sauf la dernière, calibrée sur la dernière.
+
+        La dernière saison d'entraînement (2021/22) sert à apprendre la
+        calibration : le modèle de base ne l'a pas vue. La validation 2022/23
+        reste réservée à l'évaluation. Option : ``--param base=xgb_tuned_v2``
+        (ou ``xgb_weighted_v2``) pour calibrer un autre modèle que celui de A.
+        """
+
+        base_name = str(context.params.get("base", "xgb_features_v2"))
+        seasons = sorted(int(season) for season in train["season"].unique())
+        if len(seasons) < 2:
+            raise ValueError("La calibration demande au moins deux saisons d'entraînement")
+        calibration_season = seasons[-1]
+        fit_part = train[train["season"] != calibration_season]
+        calibration_part = train[train["season"] == calibration_season]
+        base, base_info = _fit_base(base_name, fit_part, context)
+        raw = base.predict_proba(calibration_part[context.features])[:, 1]
+        model = CalibratedModel(base, method).fit_calibrator(raw, calibration_part["is_goal"].to_numpy())
+        y_calibration = calibration_part["is_goal"].to_numpy()
+        figure = calibration_map_figure(model, raw, y_calibration, context, context.name or name)
+        return model, {
+            "base": base_name,
+            "base_settings": base_info,
+            "method": method,
+            "base_training_seasons": seasons[:-1],
+            "calibration_season": calibration_season,
+            "calibration_shots": int(len(calibration_part)),
+            "figures": [figure],
+        }
+
+    return train_calibrated
+
+
+for _method, _label in (("isotonic", "isotonique"), ("sigmoid", "sigmoïde (Platt)")):
+    experiment(
+        f"xgb_{_method}_v2",
+        features=FEATURE_COLUMNS_V2,
+        description=f"Tentative D : XGBoost (A par défaut, --param base=...) + calibration {_label} apprise sur 2021/22",
+        tags=("xgboost", "features-v2", "attempt-d", "calibration", _method),
+    )(_calibrated_experiment(_method))
