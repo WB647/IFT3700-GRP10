@@ -1,0 +1,81 @@
+{
+  "models": {
+    "logreg_distance": {
+      "source": "registry",
+      "artifact": "logreg_distance:latest",
+      "version": "v0"
+    },
+    "logreg_angle": {
+      "source": "registry",
+      "artifact": "logreg_angle:latest",
+      "version": "v0"
+    },
+    "logreg_distance_angle": {
+      "source": "registry",
+      "artifact": "logreg_distance_angle:latest",
+      "version": "v0"
+    },
+    "xgb_tuned_full": {
+      "source": "registry",
+      "artifact": "xgb_tuned_full:latest",
+      "version": "v0"
+    },
+    "hgb_v2": {
+      "source": "registry",
+      "artifact": "task6_hgb_v2:latest",
+      "version": "v0"
+    }
+  },
+  "sets": {
+    "validation": {
+      "games": 1312,
+      "shots": 81990,
+      "goals": 8248,
+      "goal_rate": 0.10059763385778754,
+      "empty_net_share": 0.00535431150140261,
+      "mean_shot_distance": 35.11941193582305,
+      "task4_shots": 81990,
+      "task2_shots": 81990,
+      "unmatched": 0,
+      "excluded_missing_coordinates": 0,
+      "evaluated_shots": 81990
+    },
+    "regular": {
+      "games": 1312,
+      "shots": 79483,
+      "goals": 8085,
+      "goal_rate": 0.10171986462513996,
+      "empty_net_share": 0.0056112627857529285,
+      "mean_shot_distance": 35.8397534175073,
+      "task4_shots": 79485,
+      "task2_shots": 79485,
+      "unmatched": 0,
+      "excluded_missing_coordinates": 2,
+      "evaluated_shots": 79483
+    },
+    "playoffs": {
+      "games": 88,
+      "shots": 4949,
+      "goals": 504,
+      "goal_rate": 0.10183875530410184,
+      "empty_net_share": 0.007678318852293393,
+      "mean_shot_distance": 36.72676021125221,
+      "task4_shots": 4949,
+      "task2_shots": 4949,
+      "unmatched": 0,
+      "excluded_missing_coordinates": 0,
+      "evaluated_shots": 4949
+    }
+  },
+  "figures": [
+    "milestone2_outputs\\figures\\task7_regular_roc_auc.png",
+    "milestone2_outputs\\figures\\task7_regular_goal_rate_percentile.png",
+    "milestone2_outputs\\figures\\task7_regular_cumulative_goals.png",
+    "milestone2_outputs\\figures\\task7_regular_reliability.png",
+    "milestone2_outputs\\figures\\task7_playoffs_roc_auc.png",
+    "milestone2_outputs\\figures\\task7_playoffs_goal_rate_percentile.png",
+    "milestone2_outputs\\figures\\task7_playoffs_cumulative_goals.png",
+    "milestone2_outputs\\figures\\task7_playoffs_reliability.png"
+  ],
+  "wandb_url": "https://forge.coreweave.com/wandb/IFT3700-2026-10/ift3700-milestone-2/runs/rjp12v79"
+}

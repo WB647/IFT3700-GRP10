@@ -10,3 +10,5 @@ wandb/
 .env
 milestone2_outputs/task6_features_*.csv.gz
 milestone2_outputs/task6/models/
+milestone2_outputs/task7/test_features_*.csv.gz
+milestone2_outputs/task7/downloaded_models/
