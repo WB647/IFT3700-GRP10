@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import os
 from pathlib import Path
 from typing import Any
@@ -81,6 +84,7 @@ def log_model_run(
     entity: str | None,
     mode: str,
     register: bool,
+    tags: list[str] | None = None,
 ) -> str | None:
     """Track one experiment and optionally link its model to the registry."""
 
@@ -94,7 +98,7 @@ def log_model_run(
         project,
         entity,
         mode,
-        tags=["task-5", "xgboost", name],
+        tags=tags or ["task-5", "xgboost", name],
         config=config,
     )
     run.log(metrics)
@@ -103,7 +107,7 @@ def log_model_run(
     artifact.add_file(str(model_path))
     logged = run.log_artifact(artifact)
     if register and mode == "online":
-        run.link_artifact(logged, target_path=f"model-registry/{name}")
+        run.link_artifact(logged, target_path=f"wandb-registry-model/{name}")
     url = run.url
     run.finish()
     return url

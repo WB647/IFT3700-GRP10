@@ -11,11 +11,20 @@ ROOT = Path(__file__).resolve().parent
 NET_X = 89  # the goal line is 89 feet from the center of the rink
  
  
+def load_data(seasons, game_type=2):
+    """Shots of the given seasons for one game type (2 = regular season, 3 = playoffs)."""
+    frames = []
+    for s in seasons:
+        print(f"Lecture de la saison {s}...", flush=True)
+        frames.append(season_to_df(s))
+    df = pd.concat(frames, ignore_index=True)
+    return df[df["game_type"] == game_type]
+
+
 def load_train_data():
     """Regular season 2016-17 to 2022-23 (2023-24 is the test set, it is never read)."""
     seasons = sorted(p.name for p in DATA_DIR.iterdir() if p.is_dir() and p.name < "20232024")
-    df = pd.concat([season_to_df(s) for s in seasons], ignore_index=True)
-    return df[df["game_type"] == 2]
+    return load_data(seasons)
  
  
 def add_features(df):

@@ -72,3 +72,18 @@ def test_four_evaluation_figures_are_created(tmp_path: Path):
     )
     assert len(paths) == 4
     assert all(path.exists() and path.stat().st_size > 0 for path in paths)
+
+#Le test qui suivant a été généré avec l'aide de Claude
+
+def test_figure_prefix_names_the_files(tmp_path: Path):
+    validation = model_frame().query("season == 20222023")
+    probability = np.linspace(0.01, 0.8, len(validation))
+    paths = make_evaluation_figures(
+        validation["is_goal"], {"modèle": probability}, tmp_path, prefix="task7_playoffs"
+    )
+    assert [path.name for path in paths] == [
+        "task7_playoffs_roc_auc.png",
+        "task7_playoffs_goal_rate_percentile.png",
+        "task7_playoffs_cumulative_goals.png",
+        "task7_playoffs_reliability.png",
+    ]

@@ -1,0 +1,48 @@
+{
+  "experiment": "xgb_task5",
+  "description": "Référence : XGBoost complet réglé de la tâche 5 (déjà dans le registre)",
+  "features": [
+    "game_seconds",
+    "period",
+    "x",
+    "y",
+    "shot_distance",
+    "shot_angle",
+    "shot_type",
+    "last_event_type",
+    "last_event_x",
+    "last_event_y",
+    "time_since_last_event",
+    "distance_from_last_event",
+    "rebound",
+    "change_in_shot_angle",
+    "speed"
+  ],
+  "training_seasons": [
+    20162017,
+    20172018,
+    20182019,
+    20192020,
+    20202021,
+    20212022
+  ],
+  "validation_season": 20222023,
+  "settings": {
+    "source": "milestone2_outputs\\models\\xgb_tuned_full.joblib",
+    "refit": false
+  },
+  "metrics": {
+    "auc": 0.7487866197641232,
+    "log_loss": 0.2886472838651431,
+    "brier": 0.0833495212630676,
+    "ece": 0.008682742932221732,
+    "xg_goal_ratio": 1.0553666876827894,
+    "accuracy": 0.9005000609830467,
+    "shots": 81990,
+    "goals": 8248,
+    "train_seconds": 0.03,
+    "predict_seconds": 0.56
+  },
+  "wandb_url": null,
+  "registered": false
+}

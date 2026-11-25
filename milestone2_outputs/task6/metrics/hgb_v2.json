@@ -1,0 +1,62 @@
+{
+  "experiment": "hgb_v2",
+  "description": "Tentative C : HistGradientBoosting (scikit-learn), catégories natives, arrêt précoce",
+  "features": [
+    "game_seconds",
+    "period",
+    "x",
+    "y",
+    "shot_distance",
+    "shot_angle",
+    "shot_type",
+    "last_event_type",
+    "last_event_x",
+    "last_event_y",
+    "time_since_last_event",
+    "distance_from_last_event",
+    "rebound",
+    "change_in_shot_angle",
+    "speed",
+    "empty_net",
+    "shooter_skaters",
+    "opponent_skaters",
+    "skater_diff",
+    "is_home",
+    "last_event_same_team",
+    "score_diff"
+  ],
+  "training_seasons": [
+    20162017,
+    20172018,
+    20182019,
+    20192020,
+    20202021,
+    20212022
+  ],
+  "validation_season": 20222023,
+  "params": {},
+  "settings": {
+    "hyperparameters": {
+      "learning_rate": 0.05,
+      "max_iter": 500,
+      "max_leaf_nodes": 31,
+      "min_samples_leaf": 50,
+      "l2_regularization": 1.0
+    },
+    "iterations_used": 251
+  },
+  "metrics": {
+    "auc": 0.7639836265524905,
+    "log_loss": 0.2785202087155434,
+    "brier": 0.08013380444757161,
+    "ece": 0.008501390983880216,
+    "xg_goal_ratio": 1.064581926580675,
+    "accuracy": 0.904634711550189,
+    "shots": 81990,
+    "goals": 8248,
+    "train_seconds": 8.11,
+    "predict_seconds": 0.48
+  },
+  "wandb_url": "https://forge.coreweave.com/wandb/IFT3700-2026-10/ift3700-milestone-2/runs/xo1hf7ql",
+  "registered": false
+}
