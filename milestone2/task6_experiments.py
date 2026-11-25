@@ -23,6 +23,7 @@ Pour ajouter une tentative ::
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,11 +37,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss
 from sklearn.model_selection import GroupKFold, RandomizedSearchCV
+from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer, OneHotEncoder
+from sklearn.preprocessing import FunctionTransformer, OneHotEncoder, OrdinalEncoder, QuantileTransformer
 from xgboost import XGBClassifier
 
 from .features import FEATURE_COLUMNS, FEATURE_COLUMNS_V2, NEW_FEATURE_COLUMNS
@@ -380,5 +385,230 @@ def xgb_tuned_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, 
 
 
 # ---------------------------------------------------------------------------
-# Les tentatives C et D seront ajoutées ci-dessous.
+# Tentative C : autres familles de modèles, avec les caractéristiques de la tentative A.
+# Les paramètres par défaut peuvent être changés avec --param (p. ex. --param alpha=0.01).
+# ---------------------------------------------------------------------------
+
+def _split_features(features: list[str]) -> tuple[list[str], list[str]]:
+    """Sépare les caractéristiques numériques et catégorielles (type de tir, type du dernier événement)."""
+
+    categorical = [name for name in features if name in CATEGORICAL_FEATURES]
+    return [name for name in features if name not in categorical], categorical
+
+
+def _override(defaults: dict[str, Any], context: Context) -> dict[str, Any]:
+    """Remplace les valeurs par défaut par celles passées avec --param (clés connues seulement)."""
+
+    params = dict(defaults)
+    params.update({key: value for key, value in context.params.items() if key in defaults})
+    return params
+
+
+HGB_DEFAULTS: dict[str, Any] = {
+    "learning_rate": 0.05,
+    "max_iter": 500,
+    "max_leaf_nodes": 31,
+    "min_samples_leaf": 50,
+    "l2_regularization": 1.0,
+}
+
+
+def make_hgb_pipeline(features: list[str], params: dict[str, Any] | None = None) -> Pipeline:
+    """HistGradientBoosting de scikit-learn : valeurs manquantes et catégories gérées nativement.
+
+    Les catégories sont numérotées (OrdinalEncoder) puis déclarées comme
+    catégorielles au modèle, qui les sépare en groupes au lieu de les traiter
+    comme des nombres. Une catégorie jamais vue devient une valeur manquante.
+    L'arrêt précoce utilise 10 % de l'entraînement, jamais la validation 2022/23.
+    """
+
+    numeric, categorical = _split_features(features)
+    transformers: list[tuple[str, Any, list[str]]] = [
+        ("numeric", FunctionTransformer(np.asarray, kw_args={"dtype": float}), numeric)
+    ]
+    if categorical:
+        encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=np.nan, dtype=float)
+        transformers.append(("categorical", encoder, categorical))
+    is_categorical = [False] * len(numeric) + [True] * len(categorical)
+    model = HistGradientBoostingClassifier(
+        **{**HGB_DEFAULTS, **(params or {})},
+        categorical_features=is_categorical,
+        early_stopping=True,
+        validation_fraction=0.1,
+        n_iter_no_change=20,
+        scoring="loss",
+        random_state=42,
+    )
+    return Pipeline(
+        [("preprocessor", ColumnTransformer(transformers, remainder="drop", sparse_threshold=0.0)), ("model", model)]
+    )
+
+
+def make_scaled_preprocessor(features: list[str]) -> ColumnTransformer:
+    """Préparation pour les modèles sensibles à l'échelle (réseau de neurones, régression logistique).
+
+    Numérique : médiane + indicateur « valeur manquante », puis normalisation
+    par quantiles (certaines variables, comme la vitesse, ont des valeurs
+    extrêmes qui gêneraient l'apprentissage). Catégoriel : one-hot.
+    """
+
+    numeric, categorical = _split_features(features)
+    transformers: list[tuple[str, Any, list[str]]] = [
+        (
+            "numeric",
+            Pipeline(
+                [
+                    ("imputer", SimpleImputer(strategy="median", add_indicator=True)),
+                    ("scaler", QuantileTransformer(output_distribution="normal", n_quantiles=1000, random_state=42)),
+                ]
+            ),
+            numeric,
+        )
+    ]
+    if categorical:
+        transformers.append(
+            (
+                "categorical",
+                Pipeline(
+                    [
+                        ("imputer", SimpleImputer(strategy="constant", fill_value="missing")),
+                        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
+                    ]
+                ),
+                categorical,
+            )
+        )
+    return ColumnTransformer(transformers, remainder="drop", sparse_threshold=0.0)
+
+
+MLP_DEFAULTS: dict[str, Any] = {
+    "hidden_layer_sizes": [64, 32],
+    "alpha": 1e-3,
+    "learning_rate_init": 1e-3,
+    "batch_size": 512,
+    "max_iter": 100,
+    "patience": 10,
+}
+
+
+def fit_mlp_on_log_loss(
+    train: pd.DataFrame, features: list[str], params: dict[str, Any], held_out_fraction: float = 0.1
+) -> tuple[Pipeline, dict[str, Any]]:
+    """Entraîne le réseau époque par époque et garde la meilleure époque selon la log loss.
+
+    L'arrêt précoce intégré à scikit-learn surveille l'exactitude, qui bouge à
+    peine quand environ 90 % des tirs ne sont pas des buts. Ici, 10 % des matchs
+    d'entraînement sont mis de côté; après chaque époque, on calcule la log
+    loss sur ces matchs et on garde les poids de la meilleure époque. On arrête
+    après ``patience`` époques sans amélioration. La validation 2022/23 n'est
+    jamais utilisée.
+    """
+
+    held_out = _sample_games(train, held_out_fraction, seed=7)
+    fit_part = train[~train.index.isin(held_out.index)]
+    preprocessor = make_scaled_preprocessor(features).fit(fit_part[features])
+    x_fit, y_fit = preprocessor.transform(fit_part[features]), fit_part["is_goal"].to_numpy()
+    x_held, y_held = preprocessor.transform(held_out[features]), held_out["is_goal"].to_numpy()
+    monitor = np.random.default_rng(42).choice(len(x_fit), size=min(50_000, len(x_fit)), replace=False)
+
+    network = MLPClassifier(
+        hidden_layer_sizes=tuple(params["hidden_layer_sizes"]),
+        alpha=params["alpha"],
+        learning_rate_init=params["learning_rate_init"],
+        batch_size=params["batch_size"],
+        random_state=42,
+    )
+    history: list[dict[str, float]] = []
+    best_loss, best_network, best_epoch = np.inf, None, 0
+    for epoch in range(1, int(params["max_iter"]) + 1):
+        network.partial_fit(x_fit, y_fit, classes=np.array([0, 1]))  # une époque complète
+        held_loss = log_loss(y_held, network.predict_proba(x_held)[:, 1], labels=[0, 1])
+        train_loss = log_loss(y_fit[monitor], network.predict_proba(x_fit[monitor])[:, 1], labels=[0, 1])
+        history.append({"epoch": epoch, "train_log_loss": train_loss, "held_out_log_loss": held_loss})
+        if held_loss < best_loss - 1e-5:
+            best_loss, best_network, best_epoch = held_loss, copy.deepcopy(network), epoch
+        elif epoch - best_epoch >= int(params["patience"]):
+            break
+
+    model = Pipeline([("preprocessor", preprocessor), ("model", best_network)])
+    return model, {
+        "epochs_run": len(history),
+        "best_epoch": best_epoch,
+        "held_out_log_loss": float(best_loss),
+        "held_out_games": int(held_out["game_id"].nunique()),
+        "history": history,
+    }
+
+
+def mlp_curve_figure(history: list[dict[str, float]], best_epoch: int, context: Context, name: str) -> Path:
+    """Courbe d'apprentissage du réseau : log loss d'entraînement et des matchs mis de côté, par époque."""
+
+    table = pd.DataFrame(history)
+    figure, axis = plt.subplots(figsize=(8, 4.5))
+    axis.plot(table["epoch"], table["train_log_loss"], label="entraînement (échantillon de 50 000 tirs)")
+    axis.plot(table["epoch"], table["held_out_log_loss"], label="10 % des matchs mis de côté")
+    axis.axvline(best_epoch, color="tab:red", linestyle="--", label=f"meilleure époque ({best_epoch}), poids conservés")
+    axis.set_xlabel("Époque")
+    axis.set_ylabel("Log loss (plus bas = mieux)")
+    axis.set_title("Réseau de neurones : arrêt précoce sur la log loss")
+    axis.legend()
+    directory = context.figures_dir or (context.output_dir / "task6" / "figures" / "runs")
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{name}_learning_curve.png"
+    figure.tight_layout()
+    figure.savefig(path, dpi=160, bbox_inches="tight")
+    plt.close(figure)
+    return path
+
+
+@experiment(
+    "hgb_v2",
+    features=FEATURE_COLUMNS_V2,
+    description="Tentative C : HistGradientBoosting (scikit-learn), catégories natives, arrêt précoce",
+    tags=("hist-gradient-boosting", "features-v2", "attempt-c"),
+)
+def hgb_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any]]:
+    params = _override(HGB_DEFAULTS, context)
+    model = make_hgb_pipeline(context.features, params)
+    model.fit(train[context.features], train["is_goal"])
+    return model, {"hyperparameters": params, "iterations_used": int(model[-1].n_iter_)}
+
+
+@experiment(
+    "mlp_v2",
+    features=FEATURE_COLUMNS_V2,
+    description="Tentative C : réseau de neurones (MLP), normalisation par quantiles, arrêt précoce sur la log loss",
+    tags=("neural-network", "mlp", "features-v2", "attempt-c"),
+    extra_columns=["game_id"],
+)
+def mlp_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any]]:
+    params = _override(MLP_DEFAULTS, context)
+    layers = params["hidden_layer_sizes"]
+    # Accepte --param hidden_layer_sizes=64 (une couche) ou =[128,64] (plusieurs couches).
+    params["hidden_layer_sizes"] = [int(layers)] if isinstance(layers, (int, float)) else [int(size) for size in layers]
+    model, details = fit_mlp_on_log_loss(train, context.features, params)
+    figure = mlp_curve_figure(details.pop("history"), details["best_epoch"], context, "mlp_v2")
+    return model, {"hyperparameters": params, **details, "figures": [figure]}
+
+
+@experiment(
+    "logreg_v2",
+    features=FEATURE_COLUMNS_V2,
+    description="Tentative C : régression logistique sur toutes les caractéristiques (référence linéaire)",
+    tags=("logistic-regression", "features-v2", "attempt-c"),
+)
+def logreg_v2(train: pd.DataFrame, context: Context) -> tuple[Any, dict[str, Any]]:
+    params = _override({"C": 1.0, "max_iter": 2000}, context)
+    model = Pipeline(
+        [
+            ("preprocessor", make_scaled_preprocessor(context.features)),
+            ("model", LogisticRegression(C=params["C"], max_iter=params["max_iter"])),
+        ]
+    )
+    model.fit(train[context.features], train["is_goal"])
+    return model, {"hyperparameters": params}
+
+
+# ---------------------------------------------------------------------------
+# La tentative D sera ajoutée ci-dessous.
 # ---------------------------------------------------------------------------

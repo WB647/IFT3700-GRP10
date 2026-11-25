@@ -159,7 +159,7 @@ def test_attempt_a_new_features(tmp_path: Path):
     assert (runs / "xgb_features_v2_feature_importance.png").exists()
     importance = pd.read_csv(runs / "xgb_features_v2_feature_importance.csv", index_col=0)
     assert len(importance) == 22
-    
+
     # Dans les données synthétiques, le filet désert fait presque toujours un but.
     assert importance.loc["empty_net", "auc_drop"] > 0
 
@@ -211,3 +211,50 @@ def test_attempt_b_small_search(tmp_path: Path):
     runs = tmp_path / "task6" / "figures" / "runs"
     assert (runs / "xgb_tuned_v2_tuning.png").exists()
     assert len(pd.read_csv(runs / "xgb_tuned_v2_tuning.csv")) == 2
+
+
+def test_hgb_pipeline_handles_missing_and_unknown_categories(tmp_path: Path):
+    from milestone2.task6_experiments import make_hgb_pipeline
+
+    frame = pd.DataFrame(
+        {
+            "shot_distance": [10.0, np.nan, 30.0, 45.0] * 10,
+            "shot_type": ["wrist", "slap", np.nan, "snap"] * 10,
+            "is_goal": [1, 0, 0, 0] * 10,
+        }
+    )
+    features = ["shot_distance", "shot_type"]
+    model = make_hgb_pipeline(features, {"max_iter": 10})
+    model.fit(frame[features], frame["is_goal"])
+    new_shots = pd.DataFrame({"shot_distance": [np.nan, 12.0], "shot_type": ["bat", "wrist"]})
+    probability = model.predict_proba(new_shots)[:, 1]
+    assert np.all((probability > 0) & (probability < 1))
+    joblib.dump(model, tmp_path / "hgb.joblib")
+    assert np.allclose(joblib.load(tmp_path / "hgb.joblib").predict_proba(new_shots)[:, 1], probability)
+
+
+@pytest.mark.parametrize(
+    "name, params",
+    [
+        ("hgb_v2", {"max_iter": 30}),
+        # Petit jeu de données : petits lots, sinon le réseau ne fait que 2 mises à jour par époque.
+        ("mlp_v2", {"max_iter": 30, "hidden_layer_sizes": 16, "batch_size": 32}),
+        ("logreg_v2", {"C": 0.5}),
+    ],
+)
+def test_attempt_c_models(tmp_path: Path, name: str, params: dict):
+    dataset = synthetic_dataset(tmp_path / "data.csv.gz")
+    record = run_experiment(name, dataset=dataset, output_dir=tmp_path, params=params)
+    for key, value in params.items():
+        expected = [value] if key == "hidden_layer_sizes" else value
+        assert record["settings"]["hyperparameters"][key] == expected
+    assert 0.5 < record["metrics"]["auc"] <= 1
+    assert (tmp_path / "task6" / "models" / f"{name}.joblib").exists()
+    if name == "mlp_v2":
+        assert (tmp_path / "task6" / "figures" / "runs" / "mlp_v2_learning_curve.png").exists()
+        settings = record["settings"]
+        assert 1 <= settings["best_epoch"] <= settings["epochs_run"] <= 30
+        assert settings["held_out_log_loss"] > 0
+        assert "history" not in settings  # la courbe va dans la figure, pas dans la configuration
+    if name == "hgb_v2":
+        assert 1 <= record["settings"]["iterations_used"] <= 30
