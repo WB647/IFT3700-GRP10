@@ -1,0 +1,15 @@
+{
+  "training_rows": 520564,
+  "regular_test_rows": 79485,
+  "playoffs_test_rows": 4949,
+  "xgb_fit_seconds": 4.55,
+  "xgb_regular_prediction_seconds": 0.10721259999263566,
+  "xgb_playoffs_prediction_seconds": 0.013398399998550303,
+  "tabfm_fit_context_seconds": 15.72,
+  "tabfm_regular_prediction_seconds": 1779.98,
+  "tabfm_playoffs_prediction_seconds": 123.18,
+  "tabfm_max_num_rows": 1000,
+  "tabfm_n_estimators": 2,
+  "tabfm_chunk_size": 64,
+  "tabfm_device": "RTX 3060 Laptop GPU"
+}
