@@ -132,3 +132,82 @@ Ce qui les sépare, c'est donc surtout la simplicité. hgb_v2 gère nativement l
 Sa calibration est bonne (ECE de 0,0085), même s'il surestime légèrement le nombre total de buts (ratio xG/buts de 1,065), un biais que partagent tous les modèles non calibrés.
 Les versions calibrées corrigent ce biais (ratio de 1,02, meilleure ECE), mais au prix d'une log loss un peu moins bonne, et nous avons privilégié la qualité globale des probabilités. 
 Enfin, ce choix repose uniquement sur la validation 2022-23 : la saison 2023-24 n'a jamais été utilisée et servira à l'évaluation finale de la tâche 7.
+
+<br>
+<br>
+
+# Tâches 7 - Évaluer sur l'ensemble de test 
+
+## Description de la tâche 
+
+Le principe de cette tâche est d'évaluer les modèles retenus sur les données de la saison 2023-2024, un ensemble de données qui n'a pas servi pendant l'entrainement. Les 5 modèles évalués sont les suivants : logreg_distance, logreg_angle, logreg_distance_angle, xgb_tuned_full et hgb_v2. 
+Les modèles ont été évalués qu'une seule fois et n'ont pas été modifiés après l'évaluation. 
+
+## Données de validation 
+
+| Ensemble | Matchs | Tirs | Buts | Taux de buts | Filet désert | Distance moyenne | Tirs exclus |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Validation 2022-23 | 1312 | 81990 | 8248 | 10.06% | 0.54% | 35.1 pi | 0 |
+| Test 2023-24, saison régulière | 1312 | 79483 | 8085 | 10.17% | 0.56% | 35.8 pi | 2 |
+| Test 2023-24, séries | 88 | 4949 | 504 | 10.18% | 0.77% | 36.7 pi | 0 |
+
+## Métriques 
+
+Les métrqiues sont les mêmes qu'à la tâche 6 avec quelques ajouts :  
+- Les intervalles de confiance à 95% par bootstrap sur les matchs, pour savoir si un écart dépasse le hasard ;
+- L'écart de log loss avec le modèle final, pour comparer deux modèles évalués sur les mêmes tirs ;
+
+## Question 1 
+
+### Figures 
+
+![Img](milestone2_outputs/figures/task7_regular_roc_auc.png)
+![Img](milestone2_outputs/figures/task7_regular_reliability.png)
+![Img](milestone2_outputs/figures/task7_regular_cumulative_goals.png)
+![Img](milestone2_outputs/figures/task7_regular_goal_rate_percentile.png)
+
+### Données test 2023-24, saison régulière
+
+| Modèle | AUC [IC 95 %] | Log loss [IC 95 %] | Brier | ECE | xG / buts | Écart de log loss avec le final [IC 95 %] |
+|---|---:|---:|---:|---:|---:|---:|
+| logreg_distance | 0.6905 [0.6848, 0.6962] | 0.3124 [0.3081, 0.3171] | 0.0878 | 0.0167 | 0.949 | +0.0307 [+0.0284, +0.0330] |
+| logreg_angle | 0.5610 [0.5547, 0.5686] | 0.3274 [0.3227, 0.3321] | 0.0911 | 0.0127 | 0.903 | +0.0457 [+0.0434, +0.0479] |
+| logreg_distance_angle | 0.7159 [0.7105, 0.7211] | 0.3076 [0.3031, 0.3123] | 0.0869 | 0.0214 | 0.909 | +0.0258 [+0.0237, +0.0282] |
+| xgb_tuned_full | 0.7480 [0.7432, 0.7529] | 0.2925 [0.2884, 0.2969] | 0.0851 | 0.0156 | 1.012 | +0.0108 [+0.0098, +0.0117] |
+| **hgb_v2 (final)** | 0.7634 [0.7585, 0.7682] | 0.2818 [0.2777, 0.2859] | 0.0816 | 0.0142 | 1.025 | — |
+
+### Analyse
+
+Premièrement, on remarque que le modèle final (hgb_v2) généralise aussi bien qu'en validation. Nous avions une AUC de 0.7640 en validation et en test l'AUC est de  0.7634 [0.7585, 0.7682], on ne remarque pas de changement. Pour la log loss, on remarque une augmentation de 0,0033, mais cette hausse vient du taux de buts un peu plus élevé. 
+On remarque que le classement original en AUC comme en log loss est le même qu'à la tâche 6 : hgb_v2 > xgb_tuned_full > logreg_distance_angle > logreg_distance > logreg_angle. Les écarts de log loss avec le modèle final sont tous positifs avec des intervalles qui n'incluent pas 0, on peut affirmer que le gain de la tâche 6 est significatif sur cet ensemble de données. 
+Certains modèles semblent mieux performer qu'en validation, les régressions logistiques voient leur AUC augmenter (distance : 0,683 à 0,691, distance + angle : 0,699 à 0,716).
+Les modèles à arbres surestimaient les buts en validation (ratio 1,055 et 1,065). Sur le test, la surestimation diminue : 1,012 pour xgb_tuned_full, 1,025 pour hgb_v2. Les modèles plus simples continuent à sous-estimer par rapport aux autres modèles. 
+L'ECE est un peu moins bonne qu'en validation (0,0142 contre 0,0085 pour hgb_v2).
+En analysant les 4 figures, on remarque la dominance du modèle hgb_v2, avec tous les résultats vus précédements, on peut affirmer qu'il s'agit du modèle le plus performant. 
+
+## Question 2
+
+### Figures 
+
+![Img](milestone2_outputs/figures/task7_playoffs_roc_auc.png)
+![Img](milestone2_outputs/figures/task7_playoffs_reliability.png)
+![Img](milestone2_outputs/figures/task7_playoffs_cumulative_goals.png)
+![Img](milestone2_outputs/figures/task7_playoffs_goal_rate_percentile.png)
+
+### Données test 2023-24, séries éliminatoires
+
+| Modèle | AUC [IC 95 %] | Log loss [IC 95 %] | Brier | ECE | xG / buts | Écart de log loss avec le final [IC 95 %] |
+|---|---:|---:|---:|---:|---:|---:|
+| logreg_distance | 0.6651 [0.6423, 0.6900] | 0.3218 [0.3032, 0.3405] | 0.0887 | 0.0165 | 0.939 | +0.0396 [+0.0286, +0.0507] |
+| logreg_angle | 0.5772 [0.5507, 0.6021] | 0.3268 [0.3098, 0.3441] | 0.0911 | 0.0206 | 0.899 | +0.0446 [+0.0362, +0.0524] |
+| logreg_distance_angle | 0.6935 [0.6689, 0.7162] | 0.3160 [0.2977, 0.3358] | 0.0877 | 0.0183 | 0.893 | +0.0338 [+0.0230, +0.0446] |
+| xgb_tuned_full | 0.7382 [0.7183, 0.7557] | 0.2960 [0.2789, 0.3139] | 0.0854 | 0.0233 | 1.002 | +0.0138 [+0.0099, +0.0179] |
+| **hgb_v2 (final)** | 0.7577 [0.7388, 0.7745] | 0.2822 [0.2662, 0.3001] | 0.0809 | 0.0177 | 1.021 | — |
+
+### Analyse
+
+Pour les figures, on remarque que les courbes sont beaucoup plus irrégulières. Pour les données, on remarque que les intervalles sont plus grandes. Ces deux observations ont la même cause : l'ensemeble de données est environ 16 fois plus petit que celui de la saison régulière. Cependant, les tendances semblent être les mêmes que pour la saison régulière : les courbes du modèle hgb_v2 domine celles des autres modèles dans chaque figure. 
+Pour le modèle hgb_v2, on observe des valeurs similaires à celles obtenues avec l'ensemble de test de la saison régulière : AUC 0,7577 [0,7388, 0,7745] contre 0,7634, log loss 0,2822 contre 0,2818. Contrairement au modèle final, les modèles plus simples semblent perdre en efficacité : pour le modèle logreg_distance, son AUC passe de 0,6905 à 0,6651 et pour logreg_distance_angle, de 0,7159 à 0,6935. Il est important de noter que les intervalles (saison régulière et séries) pour les modèles simples se chevauchent, on ne peut pas vraiment conclure de différence, mais il est important de noter cette baisse d'AUC. 
+Comme pour la saison régulière, on remarque que le classement original en AUC comme en log loss est le même qu'à la tâche 6 : hgb_v2 > xgb_tuned_full > logreg_distance_angle > logreg_distance > logreg_angle.
+Les ratios restent bons : 1,021 pour hgb_v2, 1,002 pour xgb_tuned_full, de 0,893 à 0,939 pour les régressions logistiques, qui sous-estiment toujours. Par contre, pour le modèle final et xgb_tuned_full, on remarque une ECE plus élevée (0,0177 et 0,0233 respectivement).
+La généralisation aux séries est comparable pour les deux modèles à arbres, en particulier hgb_v2. La légère baisse des régressions logistiques n'est pas vraiment démontrable avec 88 matchs.

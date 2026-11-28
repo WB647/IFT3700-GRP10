@@ -168,6 +168,51 @@ L'IA a également été utilisée pour améliorer la mise en forme des fichiers 
 
 Le code a ensuite été compris et vérifié à l'aide des tests et des validations présentés précédemment afin de confirmer le bon fonctionnement des fonctionnalités.
 
+## Étape 2 - Tâche 1 - Suivi des expériences avec Weights & Biases
+
+### Configuration
+
+- **Équipe W&B :** `IFT3700-2026-10` 
+- **Projet :** `ift3700-milestone-2`.
+- **Identifiants :** jamais dans le code. Chaque membre crée un fichier `.env` à la racine (exclu par `.gitignore`) :
+
+  ```
+  WANDB_API_KEY=<votre clé>
+  WANDB_ENTITY=IFT3700-2026-10
+  ```
+
+### Ce qui est suivi
+
+| Tâche | Expériences W&B | Contenu |
+|---|---|---|
+| 3 | `logreg_distance`, `logreg_angle`, `logreg_distance_angle` | métriques, modèle |
+| 4 | `task4-wpg-v-wsh-2017021065` | artefact `wpg_v_wsh_2017021065` (DataFrame du match 2017021065) |
+| 5 | `xgb_baseline`, `xgb_tuned_full`, `xgb_selected` | configuration, métriques, figures, modèle |
+| 6 | `task6_<nom-du-modèle>` (tag `task-6`) | configuration, métriques, figures, modèle |
+| 7 | `task7_test_evaluation` (tag `task-7`) | modèles utilisés, métriques, 8 figures, tableau |
+
+### Registre de modèles (`wandb-registry-model`)
+
+| Collection | Origine |
+|---|---|
+| `logreg_distance`, `logreg_angle`, `logreg_distance_angle` | Tâche 3 |
+| `xgb_tuned_full`, `xgb_selected` | Tâche 5 |
+| `task6_hgb_v2` | Tâche 6 (modèle final) |
+
+### Reproduire les tâches 2 à 5 avec le suivi en ligne
+
+```bash
+python Jalon2_tache2_features.py
+python Jalon2_tache3_baseline.py
+python -m milestone2.generate_features --dataset --data-dir data/raw --output-dir milestone2_outputs --wandb-mode online --wandb-project ift3700-milestone-2
+python -m milestone2.train_xgboost --dataset milestone2_outputs/task4_features_2016_2022.csv.gz --output-dir milestone2_outputs --tuning-iterations 8 --cv 3 --wandb-mode online --wandb-project ift3700-milestone-2
+```
+
+`generate_features` crée une nouvelle version de l'artefact `wpg_v_wsh_2017021065` à chaque exécution en ligne : ne le relancer en ligne qu'une seule fois.
+
+---
+
+
 ## Étape 2 — Tâches 4 et 5
 
 Le dossier `milestone2/` ajoute les caractéristiques avancées et les expériences XGBoost demandées à l'étape 2, `milestone2.features` réutilise `tache3_tidydata.game_to_df` par l'adaptateur d'orientation existant, puis relit la liste complète `plays` afin d'associer à chaque tir l'événement immédiatement précédent.
@@ -195,3 +240,133 @@ python -m pytest tests/milestone2 -q
 ```
 
 L'exécution complète du 21 novembre 2026 a produit 520 564 observations. Sur la validation 2022/23 (81 990 observations), les AUC obtenues sont 0,7012 pour XGBoost distance-angle, 0,7488 pour le modèle complet réglé et 0,7428 après sélection de variables. Les quatre graphiques demandés et deux graphiques justificatifs sont sous `milestone2_outputs/figures/`. Les 9 tests propres à cette étape, ainsi que les 21 tests déjà présents, réussissent (30 tests au total). Le suivi W&B a été validé en mode hors ligne; l'authentification et la publication des liens restent à effectuer par l'équipe.
+
+## Tâche 6 – Faites de votre mieux
+
+### Fichiers
+
+| Fichier | Rôle |
+|---|---|
+| `milestone2/evaluation.py` | Métriques (AUC, log loss, Brier, ECE, ratio xG/buts) et prédictions sauvegardées |
+| `milestone2/task6_experiments.py` | Catalogue des tentatives (une fonction décorée par `@experiment`) |
+| `milestone2/train_task6.py` | Programme principal (`list`, `build-dataset`, `run`, `figures`) |
+| `milestone2/features.py` | Nouvelles caractéristiques (`NEW_FEATURE_COLUMNS`, `FEATURE_COLUMNS_V2`) |
+
+### Tentatives
+
+| Nom | Tentative | Description |
+|---|---|---|
+| `xgb_task5` | Référence | XGBoost réglé de la tâche 5, réutilisé tel quel (non envoyé à W&B) |
+| `xgb_features_v2` | A | Hyperparamètres de la tâche 5, plus 7 nouvelles caractéristiques (filet désert, nombre de patineurs, domicile, équipe de l'événement précédent, écart au score avant le tir) |
+| `xgb_tuned_v2` | B | Recherche aléatoire (log loss, validation croisée groupée par match, régularisation), valeurs manquantes gérées par XGBoost |
+| `hgb_v2` | C | HistGradientBoosting (scikit-learn), catégories natives, arrêt précoce |
+| `mlp_v2` | C | Réseau de neurones, normalisation par quantiles, arrêt précoce sur la log loss |
+| `logreg_v2` | C | Régression logistique sur les 22 caractéristiques |
+| `xgb_weighted_v2` | D | Pondération des buts (`scale_pos_weight`) |
+| `xgb_isotonic_v2`, `xgb_sigmoid_v2` | D | Calibration isotonique ou sigmoïde, apprise sur 2021-22 |
+
+### Commandes
+
+```bash
+# Lister les tentatives
+python -m milestone2.train_task6 list
+
+# Construire le jeu de données 2016-17 à 2022-23 avec les nouvelles caractéristiques (long)
+python -m milestone2.train_task6 build-dataset
+
+# Référence, puis les tentatives (une expérience W&B chacune)
+python -m milestone2.train_task6 run --experiment xgb_task5
+python -m milestone2.train_task6 run --experiment xgb_features_v2 xgb_tuned_v2 --wandb-mode online
+python -m milestone2.train_task6 run --experiment logreg_v2 hgb_v2 mlp_v2 --wandb-mode online
+python -m milestone2.train_task6 run --experiment xgb_weighted_v2 xgb_isotonic_v2 xgb_sigmoid_v2 --wandb-mode online
+
+# Tableau récapitulatif de toutes les tentatives, puis les 4 figures du blogue
+python -m milestone2.train_task6 figures
+python -m milestone2.train_task6 figures --curves xgb_task5 xgb_features_v2 mlp_v2 xgb_isotonic_v2 --final hgb_v2
+```
+
+### Options de `run`
+
+| Option | Effet |
+|---|---|
+| `--wandb-mode online` | Envoie l'expérience à W&B (`disabled` par défaut) |
+| `--register` | Lie le modèle au registre (collection `task6_<nom>`) |
+| `--param clé=valeur` | Option propre à la tentative, p. ex. `--param n_iter=20` (B) ou `--param base=xgb_tuned_v2` (D) |
+| `--name <nom>` | Enregistre une variante sous un autre nom, p. ex. `--name xgb_weighted_isotonic` |
+
+### Résultats
+
+| Fichier | Contenu |
+|---|---|
+| `milestone2_outputs/task6/predictions/<nom-du-modèle>.csv.gz` | Probabilités de validation |
+| `milestone2_outputs/task6/metrics/<nom-du-modèle>.json` | Métriques, paramètres, lien W&B |
+| `milestone2_outputs/task6/figures/runs/` | Figures de chaque tentative (importance, réglage, courbe d'apprentissage, calibration) |
+| `milestone2_outputs/task6/summary.md` | Tableau récapitulatif |
+| `milestone2_outputs/figures/task6_*.png` | Les 4 figures du blogue |
+
+### Ajouter une tentative
+
+Ajouter une fonction dans `milestone2/task6_experiments.py` :
+
+```python
+@experiment("mon_essai", features=FEATURE_COLUMNS_V2, description="...", tags=("xgboost",))
+def mon_essai(train, context):
+    model = make_pipeline(context.features, {"n_estimators": 300})
+    model.fit(train[context.features], train["is_goal"])
+    return model, {"hyperparameters": {"n_estimators": 300}}
+```
+
+Elle est alors disponible avec `run --experiment mon_essai`.
+
+---
+
+## Tâche 7 – Évaluation sur l'ensemble de test
+
+### Commande
+
+```bash
+python -m milestone2.evaluate_test
+```
+
+| Option | Effet |
+|---|---|
+| `--alias <version>` | Version prise dans le registre (`latest` par défaut) |
+| `--registry <chemin>` | Préfixe du registre, si W&B demande le nom de l'organisation |
+| `--bootstrap <n>` | Nombre de tirages pour les intervalles de confiance (500 par défaut, 0 pour désactiver) |
+| `--source local --wandb-mode disabled` | Essai avec les modèles du disque, sans W&B |
+
+### Résultats
+
+| Fichier | Contenu |
+|---|---|
+| `milestone2_outputs/figures/task7_regular_*.png` | 4 figures, saison régulière (5 courbes chacune) |
+| `milestone2_outputs/figures/task7_playoffs_*.png` | 4 figures, séries |
+| `milestone2_outputs/task7/summary.md` | Données, métriques avec intervalles de confiance à 95 % (bootstrap sur les matchs), écarts avec le modèle final, comparaison validation / test |
+| `milestone2_outputs/task7/metrics.csv` | Toutes les métriques |
+| `milestone2_outputs/task7/predictions/` | Probabilités de chaque modèle (validation, saison régulière, séries) |
+| `milestone2_outputs/task7/run.json` | Versions des modèles évalués et lien W&B |
+
+---
+
+## Fichiers exclus du dépôt
+
+Ces fichiers sont volumineux ou recalculables (voir `.gitignore`) :
+
+```
+.env
+milestone2_outputs/task6_features_*.csv.gz
+milestone2_outputs/task6/models/
+milestone2_outputs/task7/test_features_*.csv.gz
+milestone2_outputs/task7/downloaded_models/
+```
+
+Les modèles eux-mêmes sont conservés dans W&B.
+
+## Déclaration d'utilisation de l'IA
+
+Une grande partie du code des tâches 6 et 7 et leurs tests ont été écrits avec l'aide de Claude (Anthropic), plus précisément avec le modèle Opus 5.5 :
+- `milestone2/evaluation.py`, `milestone2/task6_experiments.py`, `milestone2/train_task6.py`, `milestone2/evaluate_test.py` ;
+- `tests/milestone2/test_task6.py`, `tests/milestone2/test_evaluate_test.py` ;
+- les modifications de `features.py`, `models.py`, `wandb_tracking.py` et `Jalon2_tache2_features.py` (séries, prolongations, nouvelles caractéristiques).
+
+L'équipe a relu, réédité, exécuté et validé ce code et reste responsable de son contenu.
